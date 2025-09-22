@@ -3,7 +3,6 @@ package com.javaguy.nhxserver.service;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -28,7 +27,7 @@ public class EmailService {
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
         Context context = new Context();
-        context.setVariable("resetUrl", baseUrl + "/reset-password?token=" + token);
+        context.setVariable("resetUrl", baseUrl + "/api/v1/auth/password/reset/validate?token=" + token);
 
         String htmlContent = templateEngine.process("password-reset-email", context);
 

@@ -2,18 +2,12 @@ package com.javaguy.nhxserver.model.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
 
-
-@Data
-public class PasswordResetConfirmation {
-    @NotBlank(message = "Token is required")
-    private String token;
-
-    @NotBlank(message = "Password is required")
-    @Size(min = 8, message = "Password must be at least 8 characters")
-    private String password;
-
-    @NotBlank(message = "Password confirmation is required")
-    private String confirmPassword;
-}
+public record PasswordResetConfirmation(
+        @NotBlank(message = "Token is required")
+        String token,
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, message = "Password must be at least 8 characters")
+        String password,
+        @NotBlank(message = "Password confirmation is required")
+        String confirmPassword) {}

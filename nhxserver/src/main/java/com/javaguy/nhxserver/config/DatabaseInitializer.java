@@ -4,18 +4,22 @@ import com.javaguy.nhxserver.model.entity.ERole;
 import com.javaguy.nhxserver.model.entity.Role;
 import com.javaguy.nhxserver.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 
 import org.springframework.transaction.annotation.Transactional;
 
 @Configuration
-@Slf4j
 @RequiredArgsConstructor
 public class DatabaseInitializer implements CommandLineRunner {
 
-        private final RoleRepository roleRepository;
+        private static final Logger log = LoggerFactory.getLogger(DatabaseInitializer.class);
+
+        @Autowired
+        private RoleRepository roleRepository;
 
         @Override
         @Transactional
@@ -28,8 +32,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         private void initializeRoles() {
             for (ERole roleEnum : ERole.values()) {
                 if (!roleRepository.existsByName(roleEnum)) {
-                    Role role = new Role();
-                    role.setName(roleEnum);
+                    Role role = new Role(roleEnum);
                     roleRepository.save(role);
                     log.info("Created role: {}", roleEnum.name());
                 } else {

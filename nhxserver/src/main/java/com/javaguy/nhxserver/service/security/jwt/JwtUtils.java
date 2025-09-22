@@ -7,11 +7,13 @@ import io.jsonwebtoken.security.SignatureException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +34,12 @@ public class JwtUtils {
     @Value( "${nhx.app.jwtRefreshCookieName}")
     private String jwtRefreshCookieName;
     private final String cookiePath = "/";
+    private final Environment environment;
+
+    public JwtUtils(Environment environment) {
+        this.environment = environment;
+    }
+
     //generate the token with custom claims
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
@@ -122,35 +130,30 @@ public class JwtUtils {
         return generateCookie(jwtCookieName, jwt,  jwtExpirationTime);
     }
 
-    private ResponseCookie generateCookie(String jwtCookieName, String jwt, long maxAge) {
-        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(String.valueOf(jwtCookieName), jwt)
-                .maxAge(maxAge/1000)
+    private ResponseCookie generateCookie(String cookieName, String value, long maxAge) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(cookieName, value)
+                .maxAge(maxAge / 1000)
                 .httpOnly(true)
                 .path(cookiePath)
-                .sameSite("strict");
+                .sameSite("Strict");
+
+        if (Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            builder.secure(true);
+            // builder.domain("yourdomain.com");
+        }
         return builder.build();
     }
     public ResponseCookie generateJwtCookie(String jwt) {
         return generateCookie(jwtCookieName, jwt, jwtExpirationTime);
     }
     public ResponseCookie getCleanJwtRefreshCookie() {
-        return ResponseCookie.from(jwtRefreshCookieName, "")
-                .maxAge(0)
-                .httpOnly(true)
-                .path(cookiePath)
-                .sameSite("Strict")
-                .build();
+        return generateCookie(jwtRefreshCookieName, "", 0L);
     }
     public ResponseCookie generateJwtRefreshCookie(String refreshToken) {
         return generateCookie(jwtRefreshCookieName, refreshToken, refreshExpirationTime);
     }
     public ResponseCookie getClean1JwtCookie() {
-        return ResponseCookie.from(jwtCookieName, "")
-                .maxAge(0)
-                .httpOnly(true)
-                .path(cookiePath)
-                .sameSite("Strict")
-                .build();
+        return generateCookie(jwtCookieName, "", 0L);
     }
     private SecretKey getSigningKey() {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);

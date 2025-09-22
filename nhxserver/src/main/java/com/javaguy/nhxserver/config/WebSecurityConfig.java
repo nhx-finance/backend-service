@@ -63,7 +63,7 @@ public class WebSecurityConfig {
                             "/api/v1/auth/password/reset/validate",
                             "/api/v1/auth/password/reset"
                     ).permitAll();
-                    authz.requestMatchers("/api/v1/auth/**").permitAll();
+                    authz.requestMatchers("/api/v1/auth/**", "/h2-console/**").permitAll();
                     authz.anyRequest().authenticated();
                 })
                 .authenticationProvider(authenticationProvider())

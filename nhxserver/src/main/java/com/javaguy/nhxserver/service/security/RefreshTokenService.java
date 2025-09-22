@@ -4,6 +4,7 @@ import com.javaguy.nhxserver.exception.TokenRefreshException;
 import com.javaguy.nhxserver.model.entity.RefreshToken;
 import com.javaguy.nhxserver.repository.RefreshTokenRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -12,26 +13,31 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import com.javaguy.nhxserver.model.entity.User;
 
 @Service
+@RequiredArgsConstructor
 public class RefreshTokenService {
     @Value("${nhx.app.jwtRefreshExpirationMs}")
     private Long refreshTokenDurationMs;
 
-    @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Autowired
-    private UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final UserRepository userRepository;
 
     public Optional<RefreshToken> findByToken(String token) {
         return refreshTokenRepository.findByToken(token);
     }
 
+    @Transactional
     public RefreshToken createRefreshToken(Long userId) {
+        // Check if a refresh token already exists for this user
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUserId(userId);
+        existingToken.ifPresent(refreshTokenRepository::delete);
+
         RefreshToken refreshToken = new RefreshToken();
 
-        refreshToken.setUser(userRepository.findById(userId).get());
+        refreshToken.setUser(userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found for refresh token creation")));
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         refreshToken.setToken(UUID.randomUUID().toString());
 
@@ -49,7 +55,9 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public int deleteByUserId(Long userId) {
-        return refreshTokenRepository.deleteByUser(userRepository.findById(userId).get());
+    public Long deleteByUserId(Long userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("User not found for refresh token deletion"));
+        return refreshTokenRepository.deleteByUser(user);
     }
 }

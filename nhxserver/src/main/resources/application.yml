@@ -13,17 +13,13 @@ spring:
         format_sql: true
     show-sql: false
   mail:
-    host: mongs.java@gmail.com
-    port: 587
-    username: mongs
-    password: mongs
+    host: localhost
+    port: 1025
+    username: dummy
+    password: dummy
     properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
+      mail.smtp.auth: false
+      mail.smtp.starttls.enable: false
   h2:
     console:
       enabled: true
@@ -35,7 +31,7 @@ nhx:
     jwtRefreshExpirationMs: 86400000  # 24 hours
     jwtCookieName: nhxJwtToken
     jwtRefreshCookieName: nhxRefreshToken
-    baseUrl: http://localhost:3000
+    baseUrl: http://localhost:8080
     passwordResetExpirationMs: 1800000  # 30 minutes
 
 server:

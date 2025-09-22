@@ -1,12 +1,14 @@
 package com.javaguy.nhxserver.service.security;
 
+import com.javaguy.nhxserver.exception.TokenExpiredException;
 import com.javaguy.nhxserver.model.entity.PasswordResetToken;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.repository.PasswordResetTokenRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
 import com.javaguy.nhxserver.service.EmailService;
+import com.javaguy.nhxserver.service.security.RefreshTokenService;
 import jakarta.mail.MessagingException;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,18 +19,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class PasswordResetService {
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private PasswordResetTokenRepository tokenRepository;
-
-    @Autowired
-    private EmailService emailService;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordResetTokenRepository tokenRepository;
+    private final EmailService emailService;
+    private final PasswordEncoder passwordEncoder;
+    private final RefreshTokenService refreshTokenService;
 
     @Value("${nhx.app.passwordResetExpirationMs}")
     private Long passwordResetExpirationMs;
@@ -56,8 +53,6 @@ public class PasswordResetService {
             // Send email with reset link
             emailService.sendPasswordResetEmail(user.getEmail(), token);
         }
-        // We don't want to reveal if the email exists in our system
-        // So we'll return successfully even if the email wasn't found
     }
 
     @Transactional
@@ -77,19 +72,22 @@ public class PasswordResetService {
 
     @Transactional
     public void resetPassword(String token, String newPassword) {
-        PasswordResetToken passToken = tokenRepository.findByToken(token)
-            .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+        PasswordResetToken resetToken = tokenRepository.findByToken(token)
+                .orElseThrow(() -> new TokenExpiredException("Invalid or expired password reset token."));
 
-        if (passToken.isUsed() || passToken.getExpiryDate().isBefore(Instant.now())) {
-            throw new IllegalArgumentException("Token has expired or already been used");
+        if (resetToken.getExpiryDate().isBefore(Instant.now())) {
+            throw new TokenExpiredException("Token has expired or already been used");
         }
 
-        User user = passToken.getUser();
+        User user = resetToken.getUser();
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
         // Mark token as used
-        passToken.setUsed(true);
-        tokenRepository.save(passToken);
+        resetToken.setUsed(true);
+        tokenRepository.save(resetToken);
+
+        // Invalidate all existing refresh tokens for the user, forcing re-login
+        refreshTokenService.deleteByUserId(user.getId());
     }
 }

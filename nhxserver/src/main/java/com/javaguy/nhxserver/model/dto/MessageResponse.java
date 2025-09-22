@@ -1,34 +1,24 @@
 package com.javaguy.nhxserver.model.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
-@AllArgsConstructor
-@NoArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class MessageResponse {
-    private String message;
-    private String status;
-    private Object data;
-    private ErrorDetails error;
+public record MessageResponse(
+        String message,
+        String status,
+        Object data,
+        ErrorDetails error) {
 
     public MessageResponse(String message) {
-        this.message = message;
-        this.status = "success";
+        this(message, "success", null, null);
     }
 
     public MessageResponse(String message, Object data) {
-        this.message = message;
-        this.status = "success";
-        this.data = data;
+        this(message, "success", data, null);
     }
 
     public MessageResponse(String message, String status) {
-        this.message = message;
-        this.status = status;
+        this(message, status, null, null);
     }
 
     public static MessageResponse success(String message) {
@@ -47,12 +37,10 @@ public class MessageResponse {
         return new MessageResponse(message, "error", null, error);
     }
 
-    @Data
-    @AllArgsConstructor
-    @NoArgsConstructor
-    public static class ErrorDetails {
-        private String code;
-        private String description;
-        private String field;
+    public record ErrorDetails(
+            String code,
+            String description,
+            String field
+    ) {
     }
 }

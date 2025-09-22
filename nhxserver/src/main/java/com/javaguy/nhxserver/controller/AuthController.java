@@ -3,6 +3,7 @@ package com.javaguy.nhxserver.controller;
 import com.javaguy.nhxserver.model.dto.*;
 import com.javaguy.nhxserver.service.security.AuthService;
 import com.javaguy.nhxserver.service.security.PasswordResetService;
+import com.javaguy.nhxserver.exception.PasswordsMismatchException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -36,7 +37,7 @@ public class AuthController {
     @PostMapping("/password/reset-request")
     public ResponseEntity<?> resetPasswordRequest(@Valid @RequestBody PasswordResetRequest request) {
         try {
-            passwordResetService.createPasswordResetTokenForUser(request.getEmail());
+            passwordResetService.createPasswordResetTokenForUser(request.email());
             return ResponseEntity.ok()
                     .body(new AuthResponse("Password reset instructions sent if email exists", null, null, null));
         } catch (Exception e) {
@@ -58,19 +59,28 @@ public class AuthController {
 
     @PostMapping("/password/reset")
     public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetConfirmation request) {
-        if (!request.getPassword().equals(request.getConfirmPassword())) {
-            return ResponseEntity.badRequest()
-                    .body(new AuthResponse("Passwords do not match", null, null, null));
+        if (!request.password().equals(request.confirmPassword())) {
+            throw new PasswordsMismatchException("Passwords do not match");
         }
 
         try {
-            passwordResetService.resetPassword(request.getToken(), request.getPassword());
+            passwordResetService.resetPassword(request.token(), request.password());
             return ResponseEntity.ok()
                     .body(new AuthResponse("Password has been reset successfully", null, null, null));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(new AuthResponse(e.getMessage(), null, null, null));
         }
+    }
+
+    @GetMapping("/verify-email")
+    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
+        return authService.verifyEmail(token);
+    }
+
+    @PostMapping("/resend-verification-email")
+    public ResponseEntity<?> resendVerificationEmail(@Valid @RequestBody PasswordResetRequest request) { // Reusing PasswordResetRequest for email field
+        return authService.resendVerificationEmail(request.email());
     }
 
     @GetMapping("/test")
