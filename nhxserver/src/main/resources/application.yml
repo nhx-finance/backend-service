@@ -1,0 +1,56 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:nhxdb
+    username: nhxuser
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+    show-sql: false
+  mail:
+    host: mongs.java@gmail.com
+    port: 587
+    username: mongs
+    password: mongs
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+  h2:
+    console:
+      enabled: true
+
+nhx:
+  app:
+    jwtSecret: 5367566859703373367639792F423F452848284D6251655468576D5A71347437
+    jwtExpirationMs: 900000  # 15 minutes
+    jwtRefreshExpirationMs: 86400000  # 24 hours
+    jwtCookieName: nhxJwtToken
+    jwtRefreshCookieName: nhxRefreshToken
+    baseUrl: http://localhost:3000
+    passwordResetExpirationMs: 1800000  # 30 minutes
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
+  ssl:
+    enabled: false
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    com.javaguy.nhxserver: DEBUG
+    org.hibernate.SQL: INFO
+    com.javaguy.nhxserver.service.security: DEBUG
