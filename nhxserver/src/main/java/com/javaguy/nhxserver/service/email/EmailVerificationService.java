@@ -1,4 +1,4 @@
-package com.javaguy.nhxserver.service;
+package com.javaguy.nhxserver.service.email;
 
 import com.javaguy.nhxserver.model.entity.EmailVerificationToken;
 import com.javaguy.nhxserver.model.entity.User;

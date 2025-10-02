@@ -10,7 +10,6 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
-@Repository
 public interface EmailVerificationTokenRepository extends JpaRepository<EmailVerificationToken, Long> {
     
     Optional<EmailVerificationToken> findByToken(String token);
@@ -29,4 +28,5 @@ public interface EmailVerificationTokenRepository extends JpaRepository<EmailVer
     
     boolean existsByUserAndUsedFalse(User user);
 }
+
 

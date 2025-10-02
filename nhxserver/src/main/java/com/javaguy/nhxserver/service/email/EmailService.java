@@ -1,4 +1,4 @@
-package com.javaguy.nhxserver.service;
+package com.javaguy.nhxserver.service.email;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
