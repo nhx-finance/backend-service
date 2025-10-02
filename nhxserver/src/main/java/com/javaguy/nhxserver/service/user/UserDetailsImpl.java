@@ -1,4 +1,4 @@
-package com.javaguy.nhxserver.service;
+package com.javaguy.nhxserver.service.user;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.javaguy.nhxserver.model.entity.User;

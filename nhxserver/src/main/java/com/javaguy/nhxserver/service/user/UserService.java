@@ -1,5 +1,6 @@
-package com.javaguy.nhxserver.service;
+package com.javaguy.nhxserver.service.user;
 
+import com.javaguy.nhxserver.exception.UserNotFound;
 import com.javaguy.nhxserver.model.entity.KycStatus;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.repository.UserRepository;
@@ -29,31 +30,18 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public Optional<User> findByUsername(String username) {
-        return userRepository.findByUsername(username);
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFound("User not found with username: " + username));
+        return Optional.of(user);
     }
 
     public Optional<User> findByEmail(String email) {
-        return userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFound("User not found with email: " + email));
+        return Optional.of(user);
     }
-
-    public Optional<User> findByPhoneNumber(String phoneNumber) {
-        return userRepository.findByPhoneNumber(phoneNumber);
-    }
-
     public Optional<User> findById(Long userId) {
         return userRepository.findById(userId);
-    }
-
-    public boolean existsByUsername(String username) {
-        return userRepository.existsByUsername(username);
-    }
-
-    public boolean existsByEmail(String email) {
-        return userRepository.existsByEmail(email);
-    }
-
-    public boolean existsByPhoneNumber(String phoneNumber) {
-        return userRepository.existsByPhoneNumber(phoneNumber);
     }
 
     @Transactional
@@ -138,10 +126,10 @@ public class UserService {
     }
     
     @Transactional
-    public User updateProfileImage(Long userId, String newImageUrl) {
+    public void updateProfileImage(Long userId, String newImageUrl) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
         user.setProfileImageUrl(newImageUrl);
-        return userRepository.save(user);
+        userRepository.save(user);
     }
 }
