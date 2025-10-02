@@ -29,10 +29,12 @@ public class EmailVerificationService {
     private final UserRepository userRepository;
     private final JavaMailSender mailSender;
     
-    @Value("${nhx.app.baseUrl:http://localhost:3000}")
+    @Value("${nhx.app.baseUrl}")
     private String baseUrl;
+    @Value("${spring.mail.username}")
+    private String fromEmail;
     
-    @Value("${nhx.app.emailVerificationExpirationMs:86400000}") // 24 hours
+    @Value("${nhx.app.emailVerificationExpirationMs:86400000}")
     private long tokenExpirationMs;
     
     /**
@@ -40,18 +42,13 @@ public class EmailVerificationService {
      */
     public void generateAndSendVerificationToken(User user) {
         logger.info("Generating email verification token for user: {}", user.getUsername());
-        
-        // Delete any existing tokens for this user
         tokenRepository.deleteByUser(user);
-        
-        // Generate new token
+
         String token = UUID.randomUUID().toString();
         int expiryMinutes = (int) (tokenExpirationMs / 60000); // Convert ms to minutes
         
         EmailVerificationToken verificationToken = new EmailVerificationToken(token, user, expiryMinutes);
         tokenRepository.save(verificationToken);
-        
-        // Send verification email
         sendVerificationEmail(user, token);
         
         logger.info("Email verification token generated and sent for user: {}", user.getUsername());
@@ -89,7 +86,7 @@ public class EmailVerificationService {
         // Enable the user account
         User user = verificationToken.getUser();
         user.setEnabled(true);
-        user.setEmailVerified(true); // Add this field to your User entity if you don't have it
+        user.setEmailVerified(true);
         userRepository.save(user);
         
         logger.info("Email verification successful for user: {}", user.getUsername());
@@ -131,7 +128,7 @@ public class EmailVerificationService {
             message.setTo(user.getEmail());
             message.setSubject("Verify Your Email Address - NHX Platform");
             message.setText(buildEmailContent(user.getFirstName(), verificationUrl));
-            message.setFrom("mongs.java@gmail.com");
+            message.setFrom(fromEmail);
             
             mailSender.send(message);
             logger.info("Verification email sent successfully to: {}", user.getEmail());
@@ -175,7 +172,7 @@ public class EmailVerificationService {
     }
     
     /**
-     * Clean up expired tokens (call this periodically)
+     * Clean up expired tokens
      */
     @Transactional
     public void cleanupExpiredTokens() {
