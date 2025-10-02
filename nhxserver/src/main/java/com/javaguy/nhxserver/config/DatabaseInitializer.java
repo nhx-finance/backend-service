@@ -39,8 +39,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                     log.debug("Role already exists: {}", roleEnum.name());
                 }
             }
-
-            // Verify roles were created
             long roleCount = roleRepository.count();
             log.info("Total roles in database: {}", roleCount);
         }
