@@ -5,8 +5,7 @@ import com.javaguy.nhxserver.model.entity.PasswordResetToken;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.repository.PasswordResetTokenRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
-import com.javaguy.nhxserver.service.EmailService;
-import com.javaguy.nhxserver.service.security.RefreshTokenService;
+import com.javaguy.nhxserver.service.email.EmailService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -64,7 +63,7 @@ public class PasswordResetService {
 
         PasswordResetToken passToken = tokenOptional.get();
         if (passToken.isUsed() || passToken.getExpiryDate().isBefore(Instant.now())) {
-            return false;
+            throw new TokenExpiredException("Token has expired or already been used");
         }
 
         return true;

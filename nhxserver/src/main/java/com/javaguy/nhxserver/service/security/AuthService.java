@@ -2,20 +2,17 @@ package com.javaguy.nhxserver.service.security;
 
 import com.javaguy.nhxserver.model.dto.LoginRequest;
 import com.javaguy.nhxserver.model.dto.RegisterRequest;
-import com.javaguy.nhxserver.model.entity.ERole;
 import com.javaguy.nhxserver.model.entity.RefreshToken;
-import com.javaguy.nhxserver.model.entity.Role;
 import com.javaguy.nhxserver.model.entity.User;
-import com.javaguy.nhxserver.repository.RoleRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
 import com.javaguy.nhxserver.model.dto.AuthResponse;
-import com.javaguy.nhxserver.service.EmailVerificationService;
-import com.javaguy.nhxserver.service.UserDetailsImpl;
+import com.javaguy.nhxserver.service.email.EmailVerificationService;
+import com.javaguy.nhxserver.service.user.UserDetailsImpl;
 import com.javaguy.nhxserver.service.security.jwt.JwtUtils;
-import com.javaguy.nhxserver.exception.UserAlreadyExistsException;
 import com.javaguy.nhxserver.exception.EmailNotVerifiedException;
 import com.javaguy.nhxserver.exception.AccountDisabledException;
 import com.javaguy.nhxserver.exception.EmailSendingException;
+import com.javaguy.nhxserver.service.user.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -30,12 +27,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -50,11 +45,10 @@ public class AuthService {
     
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
-    private final PasswordEncoder encoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenService refreshTokenService;
     private final EmailVerificationService emailVerificationService;
+    private final UserService userService;
 
     @Transactional
     public ResponseEntity<?> authenticateUser(@Valid LoginRequest loginRequest) {
@@ -126,44 +120,10 @@ public class AuthService {
     @Transactional
     public ResponseEntity<?> registerUser(@Valid RegisterRequest request) {
         log.info("Registering user: {}", request.username());
-        
-        if (userRepository.existsByUsername(request.username())) {
-            throw new UserAlreadyExistsException("Username is already taken");
-        }
 
-        if (userRepository.existsByEmail(request.email())) {
-            throw new UserAlreadyExistsException("Email is already registered");
-        }
-
-        if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
-            throw new UserAlreadyExistsException("Phone number is already registered");
-        }
-
-        User user = new User();
-        user.setUsername(request.username());
-        user.setEmail(request.email());
-        user.setPhoneNumber(request.phoneNumber());
-        user.setPassword(encoder.encode(request.password()));
-        user.setFirstName(request.firstName());
-        user.setLastName(request.lastName());
-
-        // Set account status - DISABLED until email verification
-        user.setEnabled(false);
-        user.setAccountNonExpired(true);
-        user.setAccountNonLocked(true);
-        user.setCredentialsNonExpired(true);
-        user.setEmailVerified(false);
-
-        Set<Role> roles = new HashSet<>();
-        Role userRole = roleRepository.findByName(ERole.ROLE_USER)
-                .orElseThrow(() -> new RuntimeException("Default role not found."));
-        roles.add(userRole);
-        user.setRoles(roles);
-
-        User savedUser = userRepository.save(user);
+        User savedUser = userService.createUser(request);
         log.info("User registered successfully: {} with ID: {}", savedUser.getUsername(), savedUser.getId());
 
-        // Generate and send email verification token
         try {
             emailVerificationService.generateAndSendVerificationToken(savedUser);
             log.info("Email verification token sent to: {}", savedUser.getEmail());

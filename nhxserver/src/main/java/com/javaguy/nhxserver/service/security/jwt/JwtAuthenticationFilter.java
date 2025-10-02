@@ -1,6 +1,6 @@
 package com.javaguy.nhxserver.service.security.jwt;
 
-import com.javaguy.nhxserver.service.UserDetailsServiceImpl;
+import com.javaguy.nhxserver.service.user.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
