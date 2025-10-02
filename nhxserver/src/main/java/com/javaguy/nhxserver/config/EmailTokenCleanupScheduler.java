@@ -1,6 +1,6 @@
 package com.javaguy.nhxserver.config;
 
-import com.javaguy.nhxserver.service.EmailVerificationService;
+import com.javaguy.nhxserver.service.email.EmailVerificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,4 +29,5 @@ public class EmailTokenCleanupScheduler {
         }
     }
 }
+
 
