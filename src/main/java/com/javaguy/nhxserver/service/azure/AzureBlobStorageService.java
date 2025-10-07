@@ -1,4 +1,4 @@
-package com.javaguy.nhxserver.service;
+package com.javaguy.nhxserver.service.azure;
 
 import com.azure.core.util.Context;
 import com.azure.storage.blob.BlobClient;

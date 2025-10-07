@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/backend-service.iml" filepath="$PROJECT_DIR$/.idea/backend-service.iml" />
+      <module fileurl="file://$PROJECT_DIR$/nhxserver.iml" filepath="$PROJECT_DIR$/nhxserver.iml" />
     </modules>
   </component>
 </project>
