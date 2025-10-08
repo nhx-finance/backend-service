@@ -1,0 +1,60 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driverClassName: org.postgresql.Driver
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+
+  mail:
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+    protocol: smtp
+
+azure:
+  storage:
+    account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+    account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
+    container-name: ${AZURE_CONTAINER_NAME}
+
+hedera:
+  testnet:
+    accountId: ${HEDERA_ACCOUNT_ID}
+    privateKey: ${HEDERA_PRIVATE_KEY}
+
+nhx:
+  app:
+    jwtSecret: ${JWT_SECRET}
+    jwtExpirationMs: 900000
+    jwtRefreshExpirationMs: 86400000
+    jwtCookieName: nhxJwtToken
+    jwtRefreshCookieName: nhxRefreshToken
+    baseUrl: ${APP_BASE_URL=http://localhost:8080}
+    passwordResetExpirationMs: 1800000
+
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+        http-only: true
+        same-site: strict
+  ssl:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: WARN
+    com.javaguy.nhxserver: INFO
