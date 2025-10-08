@@ -39,7 +39,7 @@ nhx:
     jwtRefreshExpirationMs: 86400000
     jwtCookieName: nhxJwtToken
     jwtRefreshCookieName: nhxRefreshToken
-    baseUrl: ${APP_BASE_URL=http://localhost:8080}
+    baseUrl: http://localhost:8080
     passwordResetExpirationMs: 1800000
 
 
