@@ -10,15 +10,22 @@ import com.azure.storage.blob.options.BlobParallelUploadOptions;
 import com.azure.storage.blob.sas.BlobSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.storage.common.StorageSharedKeyCredential;
+import com.javaguy.nhxserver.exception.ApiException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -37,6 +44,8 @@ public class AzureBlobStorageService {
 
     private BlobContainerClient blobContainerClient;
 
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final List<String> ALLOWED_IMAGE_TYPES = Arrays.asList("image/jpeg", "image/png", "image/webp");
 
     public void init() {
         StorageSharedKeyCredential credential = new StorageSharedKeyCredential(accountName, accountKey);
@@ -51,18 +60,27 @@ public class AzureBlobStorageService {
         }
     }
 
-    public String uploadImage(MultipartFile file) throws IOException {
+    public String uploadImage(Long userId, MultipartFile file) throws IOException {
         if (file.isEmpty()) {
-            throw new IOException("Failed to store empty file.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ImageUploadError", "Cannot upload empty file.");
         }
 
-        String originalFilename = file.getOriginalFilename();
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ImageUploadError", "File size exceeds 5MB limit.");
+        }
+
+        if (!ALLOWED_IMAGE_TYPES.contains(file.getContentType())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ImageUploadError", "Only JPEG, PNG, and WEBP image types are allowed.");
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS"));
+        String originalFilename = Objects.requireNonNull(file.getOriginalFilename());
         String fileExtension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
+        if (originalFilename.contains(".")) {
             fileExtension = originalFilename.substring(originalFilename.lastIndexOf("."));
         }
+        String blobFileName = userId + "-" + timestamp + fileExtension;
 
-        String blobFileName = UUID.randomUUID() + fileExtension;
         BlobClient blobClient = blobContainerClient.getBlobClient(blobFileName);
 
         try (InputStream inputStream = file.getInputStream()) {

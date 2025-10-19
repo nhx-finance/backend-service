@@ -5,7 +5,6 @@ import com.javaguy.nhxserver.model.entity.RefreshToken;
 import com.javaguy.nhxserver.repository.RefreshTokenRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +30,7 @@ public class RefreshTokenService {
     @Transactional
     public RefreshToken createRefreshToken(Long userId) {
         // Check if a refresh token already exists for this user
-        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUserId(userId);
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByUserUserId(userId);
         existingToken.ifPresent(refreshTokenRepository::delete);
 
         RefreshToken refreshToken = new RefreshToken();
@@ -55,9 +54,9 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public Long deleteByUserId(Long userId) {
+    public void deleteByUserId(Long userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("User not found for refresh token deletion"));
-        return refreshTokenRepository.deleteByUser(user);
+        refreshTokenRepository.deleteByUser(user);
     }
 }

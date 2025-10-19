@@ -27,6 +27,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import com.javaguy.nhxserver.model.dto.MessageResponse;
-import com.javaguy.nhxserver.model.dto.RegistrationSuccessInfo;
+import com.javaguy.nhxserver.model.dto.RegistrationResponse;
 import com.javaguy.nhxserver.model.dto.UserInfo;
 
 @Service
@@ -49,14 +50,15 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final EmailVerificationService emailVerificationService;
     private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public ResponseEntity<?> authenticateUser(@Valid LoginRequest loginRequest) {
-        log.info("Authenticating user: {}", loginRequest.usernameOrEmail());
+        log.info("Authenticating user: {}", loginRequest.email());
         
         try {
             Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.usernameOrEmail(), loginRequest.password()));
+                new UsernamePasswordAuthenticationToken(loginRequest.email(), loginRequest.password()));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
             UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
@@ -64,8 +66,8 @@ public class AuthService {
             User user = userRepository.findById(userDetails.getId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-            if (!user.isEnabled()) {
-                log.warn("Login attempt with unverified email for user: {}", user.getEmail());
+            if (!user.isEnabled() || !user.isEmailVerified()) {
+                log.warn("Login attempt with unverified or disabled email for user: {}", user.getEmail());
                 throw new EmailNotVerifiedException("Please verify your email address before logging in. Check your email for the verification link.");
             }
 
@@ -78,16 +80,14 @@ public class AuthService {
                 .collect(Collectors.toSet());
 
             UserInfo userInfo = new UserInfo(
-                user.getId(),
+                user.getUserId(),
                 user.getUsername(),
                 user.getEmail(),
                 user.getPhoneNumber(),
-                user.getFirstName(),
-                user.getLastName(),
-                user.getKycStatus().name()
+                user.getFullName()
             );
 
-            log.info("Authentication successful for user: {}", loginRequest.usernameOrEmail());
+            log.info("Authentication successful for user: {}", loginRequest.email());
             
             return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
@@ -96,12 +96,12 @@ public class AuthService {
                 
         } catch (DisabledException e) {
             // Check if the user exists and needs email verification
-            String usernameOrEmail = loginRequest.usernameOrEmail();
+            String usernameOrEmail = loginRequest.email();
             User user = userRepository.findByUsername(usernameOrEmail)
                     .or(() -> userRepository.findByEmail(usernameOrEmail))
                     .orElse(null);
             
-            if (user != null && !user.isEmailVerified()) {
+            if (user != null && !user.isEmailVerified()) { // Check only email verification here
                 log.warn("Login attempt with unverified email for user: {}", usernameOrEmail);
                 throw new EmailNotVerifiedException("Please verify your email address before logging in. Check your email for the verification link.");
             } else {
@@ -109,34 +109,32 @@ public class AuthService {
                 throw new AccountDisabledException("Your account has been disabled. Please contact support.");
             }
         } catch (AuthenticationException e) {
-            log.error("Authentication failed for user: {}", loginRequest.usernameOrEmail(), e);
+            log.error("Authentication failed for user: {}", loginRequest.email(), e);
             throw new RuntimeException("Invalid username/email or password", e);
         } catch (Exception e) {
-            log.error("Unexpected authentication error for user: {}", loginRequest.usernameOrEmail(), e);
+            log.error("Unexpected authentication error for user: {}", loginRequest.email(), e);
             throw new RuntimeException("An unexpected error occurred during authentication", e);
         }
     }
 
     @Transactional
     public ResponseEntity<?> registerUser(@Valid RegisterRequest request) {
-        log.info("Registering user: {}", request.username());
+        log.info("Registering user with email: {}", request.email());
 
-        User savedUser = userService.createUser(request);
-        log.info("User registered successfully: {} with ID: {}", savedUser.getUsername(), savedUser.getId());
+        User registeredUser = userService.registerUser(request);
 
         try {
-            emailVerificationService.generateAndSendVerificationToken(savedUser);
-            log.info("Email verification token sent to: {}", savedUser.getEmail());
+            emailVerificationService.generateAndSendVerificationToken(registeredUser);
+            log.info("Email verification token sent to: {}", registeredUser.getEmail());
 
-            return ResponseEntity.ok(new MessageResponse(
-                    "User registered successfully! Please check your email to verify your account before logging in.",
-                    "success",
-                    new RegistrationSuccessInfo(true, savedUser.getEmail(), savedUser.getId()),
-                    null
+            return ResponseEntity.status(HttpStatus.CREATED).body(new RegistrationResponse(
+                    registeredUser.getUserId(),
+                    registeredUser.getEmail(),
+                    registeredUser.getCreatedAt()
             ));
 
         } catch (Exception e) {
-            log.error("Failed to send verification email for user: {}", savedUser.getUsername(), e);
+            log.error("Failed to send verification email for user: {}", registeredUser.getEmail(), e);
             throw new EmailSendingException("User registered, but failed to send verification email. Please contact support.", e);
         }
     }
@@ -148,9 +146,9 @@ public class AuthService {
         boolean verified = emailVerificationService.verifyEmail(token);
         
         if (verified) {
-            return ResponseEntity.ok(new MessageResponse("Email verified successfully! You can now log in to your account.", "success", Map.of("verified", true), null));
+            return ResponseEntity.ok(new MessageResponse("Email verified successfully! You can now log in to your account.", Map.of("verified", true)));
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse("Email verification failed", "error", null, new MessageResponse.ErrorDetails("VERIFICATION_FAILED", "The verification link is invalid, expired, or has already been used.", null)));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(MessageResponse.error("Email verification failed", new MessageResponse.ErrorDetails("VERIFICATION_FAILED", "The verification link is invalid, expired, or has already been used.", null)));
         }
     }
     
@@ -162,7 +160,7 @@ public class AuthService {
         if (sent) {
             return ResponseEntity.ok(new MessageResponse("Verification email sent successfully! Please check your email.", "success"));
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new MessageResponse("Failed to resend verification email", "error", null, new MessageResponse.ErrorDetails("RESEND_FAILED", "Email not found or account already verified.", null)));
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(MessageResponse.error("Failed to resend verification email", new MessageResponse.ErrorDetails("RESEND_FAILED", "Email not found or account already verified.", null)));
         }
     }
 
