@@ -17,8 +17,7 @@ import java.util.Set;
 @Table(name = "users",
        uniqueConstraints = {
            @UniqueConstraint(columnNames = "username"),
-           @UniqueConstraint(columnNames = "email"),
-           @UniqueConstraint(columnNames = "phone_number")
+           @UniqueConstraint(columnNames = "email")
        })
 @Builder
 public class User {
@@ -32,7 +31,7 @@ public class User {
     private String email;
 
     @Column(name = "phone_number")
-    private String phoneNumber ="";
+    private String phoneNumber;
 
     @Column(nullable = false)
     private String password;
