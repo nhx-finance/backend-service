@@ -73,7 +73,7 @@ CREATE TABLE asset (
     name VARCHAR(255) NOT NULL,
     asset_ticker VARCHAR(255),
     date_updated TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 -- Create portfolio_snapshots table
@@ -83,7 +83,7 @@ CREATE TABLE portfolio_snapshots (
     date DATE NOT NULL,
     balance DECIMAL(19, 8) NOT NULL,
     created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 -- ========================================
@@ -126,7 +126,7 @@ ALTER TABLE email_verification_tokens
 
 ALTER TABLE user_roles
     ADD CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id)
-        REFERENCES users(id) ON DELETE CASCADE;
+        REFERENCES users(user_id) ON DELETE CASCADE;
 
 ALTER TABLE user_roles
     ADD CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id)
@@ -134,15 +134,15 @@ ALTER TABLE user_roles
 
 ALTER TABLE refresh_tokens
     ADD CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id)
-        REFERENCES users(id) ON DELETE CASCADE;
+        REFERENCES users(user_id) ON DELETE CASCADE;
 
 ALTER TABLE password_reset_tokens
     ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id)
-        REFERENCES users(id) ON DELETE CASCADE;
+        REFERENCES users(user_id) ON DELETE CASCADE;
 
 ALTER TABLE email_verification_tokens
     ADD CONSTRAINT fk_verify_user FOREIGN KEY (user_id)
-        REFERENCES users(id) ON DELETE CASCADE;
+        REFERENCES users(user_id) ON DELETE CASCADE;
 
 -- ========================================
 -- Create Indexes for Performance
