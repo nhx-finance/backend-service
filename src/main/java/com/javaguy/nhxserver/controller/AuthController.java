@@ -48,7 +48,7 @@ public class AuthController {
 
     @Operation(summary = "Register a new user", description = "Registers a new user with provided details, assigns a default role, and sends an email verification link.")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "User registered successfully",
+            @ApiResponse(responseCode = "201", description = "User registered successfully",
                     content = @Content(mediaType = "application/json",
                             schema = @Schema(implementation = MessageResponse.class))),
             @ApiResponse(responseCode = "409", description = "User with username, email, or phone number already exists",
