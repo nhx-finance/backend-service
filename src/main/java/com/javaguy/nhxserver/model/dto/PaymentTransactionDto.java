@@ -12,7 +12,7 @@ public record PaymentTransactionDto(
         String method,
         BigDecimal amount,
         String currency,
-        String status,
+        //String status,
         LocalDateTime date,
         String description
 ) {
@@ -24,7 +24,6 @@ public record PaymentTransactionDto(
                 paymentTransaction.getMethod(),
                 paymentTransaction.getAmount(),
                 paymentTransaction.getCurrency(),
-                paymentTransaction.getStatus(),
                 paymentTransaction.getDate(),
                 paymentTransaction.getDescription()
         );
