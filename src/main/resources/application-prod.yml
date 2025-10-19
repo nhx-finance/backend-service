@@ -55,6 +55,7 @@ server:
         same-site: strict
   ssl:
     enabled: false
+  port: 8080
 
 logging:
   level:

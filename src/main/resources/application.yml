@@ -3,3 +3,6 @@ spring:
     active: prod
   application:
     name: nhxserver
+
+server:
+  port: 8080
