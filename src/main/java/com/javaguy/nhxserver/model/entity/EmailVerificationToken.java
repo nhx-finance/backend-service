@@ -10,7 +10,6 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "email_verification_tokens")
-@Data
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,7 +23,7 @@ public class EmailVerificationToken {
     private String token;
     
     @OneToOne(targetEntity = User.class, fetch = FetchType.EAGER)
-    @JoinColumn(nullable = false, name = "user_id", foreignKey = @ForeignKey(name = "FK_VERIFY_USER"))
+    @JoinColumn(nullable = false, name = "user_id", referencedColumnName = "userId")
     private User user;
     
     @Column(nullable = false)

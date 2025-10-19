@@ -1,9 +1,8 @@
 package com.javaguy.nhxserver.repository;
 
-import com.javaguy.nhxserver.model.entity.ERole;
+import com.javaguy.nhxserver.model.enums.ERole;
 import com.javaguy.nhxserver.model.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
