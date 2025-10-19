@@ -1,4 +1,4 @@
-package com.javaguy.nhxserver.model.entity;
+package com.javaguy.nhxserver.model.enums;
 
 public enum KycStatus {
     PENDING,

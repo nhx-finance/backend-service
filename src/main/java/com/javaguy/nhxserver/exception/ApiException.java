@@ -13,6 +13,10 @@ public class ApiException extends RuntimeException {
         this.status = status;
     }
 
+    public ApiException(HttpStatus httpStatus, String invalidWalletAddress, String s) {
+        this.status = httpStatus;
+    }
+
     public HttpStatus getStatus() {
         return status;
     }

@@ -1,5 +1,6 @@
 package com.javaguy.nhxserver.model.entity;
 
+import com.javaguy.nhxserver.model.enums.ERole;
 import jakarta.persistence.*;
 import lombok.*;
 

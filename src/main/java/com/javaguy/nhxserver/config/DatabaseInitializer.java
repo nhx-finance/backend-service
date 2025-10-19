@@ -1,6 +1,6 @@
 package com.javaguy.nhxserver.config;
 
-import com.javaguy.nhxserver.model.entity.ERole;
+import com.javaguy.nhxserver.model.enums.ERole;
 import com.javaguy.nhxserver.model.entity.Role;
 import com.javaguy.nhxserver.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;

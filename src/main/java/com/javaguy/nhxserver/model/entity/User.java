@@ -1,12 +1,11 @@
 package com.javaguy.nhxserver.model.entity;
 
+import com.javaguy.nhxserver.model.enums.KycStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -21,44 +20,25 @@ import java.util.Set;
            @UniqueConstraint(columnNames = "email"),
            @UniqueConstraint(columnNames = "phone_number")
        })
+@Builder
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long userId;
 
-    @Column(nullable = false)
     private String username;
 
     @Column(nullable = false)
     private String email;
 
-    @Column(name = "phone_number", nullable = false)
-    private String phoneNumber;
+    @Column(name = "phone_number")
+    private String phoneNumber ="";
 
     @Column(nullable = false)
     private String password;
 
-    @Column(name = "first_name")
-    private String firstName;
-
-    @Column(name = "last_name")
-    private String lastName;
-
-    @Column(name = "kyc_status")
-    @Enumerated(EnumType.STRING)
-    private KycStatus kycStatus = KycStatus.PENDING;
-
-    @Column(name = "kyc_reference")
-    private String kycReference;
-
-    @Column(name = "account_non_expired")
-    private boolean accountNonExpired = true;
-
-    @Column(name = "account_non_locked")
-    private boolean accountNonLocked = true;
-
-    @Column(name = "credentials_non_expired")
-    private boolean credentialsNonExpired = true;
+    @Column(name = "full_name")
+    private String fullName="";
 
     @Column(name = "enabled")
     private boolean enabled = false;
@@ -70,10 +50,10 @@ public class User {
     private String profileImageUrl;
 
     @Column(name = "created_at")
-    private Instant createdAt;
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
 
     @Column(name = "wallet_address")
     private String walletAddress;
@@ -86,12 +66,12 @@ public class User {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = Instant.now();
-        updatedAt = Instant.now();
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = Instant.now();
+        updatedAt = LocalDateTime.now();
     }
 }

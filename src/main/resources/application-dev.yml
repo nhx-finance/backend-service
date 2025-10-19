@@ -22,18 +22,13 @@ spring:
 
 hedera:
   testnet:
-    accountId: "0.0.5800339"
-    privateKey: "3030020100300706052b8104000a0422042051d0ef27921132cfeb94fc548ba9db9052a10d462440a5f14ad138fbe5f99a88"
+    accountId: ${ACCOUNT_ID}
+    privateKey: ${PRIVATE_KEY}
 azure:
   storage:
     account-name: nhxstorage
-    account-key: 8uWGJMLuiTUaJrTh7iA6fdlgb6OHrhTheBjuOvwqKQRnG509KcsICKbuVyOZZZfg2/OQ8HV8UDct+ASt2kuJkw==
+    account-key: ${ACCOUNT_KEY}
     container-name: nhx-dev
-#hedera:
-#  network: testnet
-#  operator:
-#    id: 0.0.5800339
-#    key:
 
 nhx:
   app:
@@ -42,7 +37,7 @@ nhx:
     jwtRefreshExpirationMs: 86400000  # 24 hours
     jwtCookieName: nhxJwtToken
     jwtRefreshCookieName: nhxRefreshToken
-    baseUrl: http://localhost:8080
+    base-url: http://localhost:8080
     passwordResetExpirationMs: 1800000  # 30 minutes
 
 server:

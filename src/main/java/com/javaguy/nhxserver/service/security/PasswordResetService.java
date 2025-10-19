@@ -87,6 +87,6 @@ public class PasswordResetService {
         tokenRepository.save(resetToken);
 
         // Invalidate all existing refresh tokens for the user, forcing re-login
-        refreshTokenService.deleteByUserId(user.getId());
+        refreshTokenService.deleteByUserId(user.getUserId());
     }
 }

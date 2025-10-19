@@ -57,21 +57,21 @@ public class HederaService {
         user.setWalletAddress(accountId.toString());
     }
 
-    //create, link, or manage a user's Hedera wallet
-    @Transactional
-    public void manageWallet(Long userId, @Valid WalletRequestDto dto) throws TimeoutException, PrecheckStatusException, ReceiptStatusException {
-        User user = findUserAndCheckWallet(userId);
-
-        if ("create".equalsIgnoreCase(dto.action())) {
-            createHederaWallet(user);
-        } else if ("link".equalsIgnoreCase(dto.action())) {
-            if (dto.accountId() == null) {
-                throw new ApiException("Account ID required for linking", HttpStatus.BAD_REQUEST);
-            }
-            linkExistingWallet(user, dto.accountId());
-        } else {
-            throw new ApiException("Invalid action", HttpStatus.BAD_REQUEST);
-        }
-        userRepository.save(user);
-    }
+//    //create, link, or manage a user's Hedera wallet
+//    @Transactional
+//    public void manageWallet(Long userId, @Valid WalletRequestDto dto) throws TimeoutException, PrecheckStatusException, ReceiptStatusException {
+//        User user = findUserAndCheckWallet(userId);
+//
+//        if ("create".equalsIgnoreCase(dto.action())) {
+//            createHederaWallet(user);
+//        } else if ("link".equalsIgnoreCase(dto.action())) {
+//            if (dto.accountId() == null) {
+//                throw new ApiException("Account ID required for linking", HttpStatus.BAD_REQUEST);
+//            }
+//            linkExistingWallet(user, dto.accountId());
+//        } else {
+//            throw new ApiException("Invalid action", HttpStatus.BAD_REQUEST);
+//        }
+//        userRepository.save(user);
+//    }
 }

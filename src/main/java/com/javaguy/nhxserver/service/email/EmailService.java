@@ -16,7 +16,7 @@ public class EmailService {
     private final JavaMailSender emailSender;
     private final TemplateEngine templateEngine;
 
-    @Value("${nhx.app.baseUrl}")
+    @Value("${nhx.app.base-url}")
     private String baseUrl;
 
     @Value("${spring.mail.username}")
@@ -27,7 +27,7 @@ public class EmailService {
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
         Context context = new Context();
-        context.setVariable("resetUrl", baseUrl + "/api/v1/auth/password/reset/validate?token=" + token);
+        context.setVariable("resetUrl", baseUrl + "/api/v1/auth/reset-password?token=" + token);
 
         String htmlContent = templateEngine.process("password-reset-email", context);
 
