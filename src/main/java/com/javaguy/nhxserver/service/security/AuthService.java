@@ -96,16 +96,16 @@ public class AuthService {
                 
         } catch (DisabledException e) {
             // Check if the user exists and needs email verification
-            String usernameOrEmail = loginRequest.email();
-            User user = userRepository.findByUsername(usernameOrEmail)
-                    .or(() -> userRepository.findByEmail(usernameOrEmail))
+            String email = loginRequest.email();
+            User user = userRepository.findByEmail(email)
+                    .or(() -> userRepository.findByEmail(email))
                     .orElse(null);
             
-            if (user != null && !user.isEmailVerified()) { // Check only email verification here
-                log.warn("Login attempt with unverified email for user: {}", usernameOrEmail);
+            if (user != null && !user.isEmailVerified()) {
+                log.warn("Login attempt with unverified email for user: {}", email);
                 throw new EmailNotVerifiedException("Please verify your email address before logging in. Check your email for the verification link.");
             } else {
-                log.error("Authentication failed - account disabled for user: {}", usernameOrEmail, e);
+                log.error("Authentication failed - account disabled for user: {}", email, e);
                 throw new AccountDisabledException("Your account has been disabled. Please contact support.");
             }
         } catch (AuthenticationException e) {

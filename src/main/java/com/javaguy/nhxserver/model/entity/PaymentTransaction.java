@@ -25,7 +25,7 @@ public class PaymentTransaction {
     private String method; // "Mpesa"
     private BigDecimal amount;
     private String currency; // "KES"
-    private String status; // pending, completed, failed
+    //private String status; // pending, completed, failed
     private LocalDateTime date;
     private String description;
 
