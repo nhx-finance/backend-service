@@ -18,25 +18,22 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Transaction> getTransactions(Long userId, String type, LocalDateTime startDate, LocalDateTime endDate) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
-        if (startDate == null) {
-            startDate = LocalDateTime.MIN;
-        }
-        if (endDate == null) {
-            endDate = LocalDateTime.MAX;
-        }
+        LocalDateTime safeStart = (startDate != null) ? startDate : LocalDateTime.of(1970, 1, 1, 0, 0);
+        LocalDateTime safeEnd = (endDate != null) ? endDate : LocalDateTime.of(3000, 1, 1, 0, 0);
 
-        if (startDate.isAfter(endDate)) {
+        if (safeStart.isAfter(safeEnd)) {
             return Collections.emptyList();
         }
 
-        if (type != null && !type.isEmpty()) {
-            return transactionRepository.findByUserUserIdAndTypeAndDateBetween(userId, type, startDate, endDate);
+        if (type != null && !type.isBlank()) {
+            return transactionRepository.findByUserUserIdAndTypeAndDateBetween(userId, type, safeStart, safeEnd);
         } else {
-            return transactionRepository.findByUserUserIdAndDateBetween(userId, startDate, endDate);
+            return transactionRepository.findByUserUserIdAndDateBetween(userId, safeStart, safeEnd);
         }
     }
 }

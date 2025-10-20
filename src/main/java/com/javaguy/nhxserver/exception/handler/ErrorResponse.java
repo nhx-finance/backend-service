@@ -3,18 +3,25 @@ package com.javaguy.nhxserver.exception.handler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.http.HttpStatus;
 
-import java.time.LocalDateTime;
+import java.util.Map;
 
+/**
+ * Contract-compliant error envelope: { "error": { code, message, details } }
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class ErrorResponse {
 
-    private LocalDateTime timestamp;
-    private HttpStatus status;
-    private String error;
-    private String message;
-    private String path;
+    private ErrorDetail error;
+
+    @Data
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class ErrorDetail {
+        private String code;
+        private String message;
+        private Map<String, Object> details;
+    }
 }

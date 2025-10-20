@@ -67,7 +67,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Tag(name = "User Management", description = "APIs for managing user profiles and data")
 public class UserController {
 
-    private final UserService userService;
+    private final com.javaguy.nhxserver.service.user.api.UserUseCase userService;
+        private final com.javaguy.nhxserver.service.user.UserProfileQueryService userProfileQueryService;
     private final AzureBlobStorageService azureBlobStorageService;
     private final HederaService hederaService;
     private final AuthService authService;
@@ -95,24 +96,8 @@ public class UserController {
     @GetMapping("/{userId}")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<UserResponse> getUserProfile(@PathVariable Long userId) {
-        User user = userService.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
-        List<AssetDto> assets = userService.getAssetsByUserId(userId).stream()
-                .map(AssetDto::fromEntity)
-                .collect(Collectors.toList());
-        List<TransactionDto> transactions = transactionService.getTransactions(userId, null, null, null).stream()
-                .map(TransactionDto::fromEntity)
-                .collect(Collectors.toList());
-        List<ProductAccessDto> productAccesses = productAccessService.getProductAccessByUserId(userId).stream()
-                .map(ProductAccessDto::fromEntity)
-                .collect(Collectors.toList());
-        List<PaymentMethodDto> paymentMethods = paymentMethodService.getPaymentMethodsByUserId(userId).stream()
-                .map(PaymentMethodDto::fromEntity)
-                .collect(Collectors.toList());
-        List<PaymentTransactionDto> paymentTransactions = paymentTransactionService.getPaymentTransactions(userId, null, null, null).stream()
-                .map(PaymentTransactionDto::fromEntity)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(UserResponse.fromUser(user, assets, transactions, productAccesses, paymentMethods, paymentTransactions));
+        UserResponse response = userProfileQueryService.buildUserProfile(userId);
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Update user details", description = "Updates the details of a specific user. Requires user to be authenticated and authorized.")

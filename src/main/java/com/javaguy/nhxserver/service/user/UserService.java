@@ -3,7 +3,7 @@ package com.javaguy.nhxserver.service.user;
 import com.javaguy.nhxserver.exception.UserNotFound;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.repository.UserRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
 import java.util.Optional;
@@ -33,28 +33,32 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class UserService implements com.javaguy.nhxserver.service.user.api.UserUseCase {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final AssetRepository assetRepository;
 
-    public Optional<User> findByUsername(String username) {
+    @Transactional(readOnly = true)
+        public Optional<User> findByUsername(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFound("User not found with username: " + username));
         return Optional.of(user);
     }
 
-    public Optional<User> findByEmail(String email) {
+    @Transactional(readOnly = true)
+        public Optional<User> findByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFound("User not found with email: " + email));
         return Optional.of(user);
     }
-    public Optional<User> findById(Long userId) {
+    @Transactional(readOnly = true)
+        public Optional<User> findById(Long userId) {
         return userRepository.findById(userId);
     }
 
-    public List<Asset> getAssetsByUserId(Long userId) {
+    @Transactional(readOnly = true)
+        public List<Asset> getAssetsByUserId(Long userId) {
         return assetRepository.findByUserUserId(userId);
     }
 
@@ -90,7 +94,8 @@ public class UserService {
         return new MessageResponse("Wallet address set successfully", user.getUpdatedAt());
     }
 
-    public WalletResponse getWalletAddress(Long userId) {
+    @Transactional(readOnly = true)
+        public WalletResponse getWalletAddress(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 

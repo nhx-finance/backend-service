@@ -7,5 +7,7 @@ public record LoginResponse(
         String email,
         String jwtToken,
         String refreshToken,
-        Set<String> roles
+        Set<String> roles,
+        Long jwtExpiresAt,
+        Long refreshExpiresAt
 ) {}

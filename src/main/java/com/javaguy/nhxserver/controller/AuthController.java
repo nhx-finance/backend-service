@@ -1,7 +1,7 @@
 package com.javaguy.nhxserver.controller;
 
 import com.javaguy.nhxserver.model.dto.*;
-import com.javaguy.nhxserver.service.security.AuthService;
+import com.javaguy.nhxserver.service.security.api.AuthUseCase;
 import com.javaguy.nhxserver.service.security.PasswordResetService;
 import com.javaguy.nhxserver.exception.PasswordsMismatchException;
 import jakarta.validation.Valid;
@@ -11,6 +11,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.Optional;
+import com.javaguy.nhxserver.service.security.jwt.JwtUtils;
 
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,12 +27,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
-@Tag(name = "Authentication", description = "User authentication and authorization management APIs")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
-    private final AuthService authService;
+    private final AuthUseCase authService;
     private final PasswordResetService passwordResetService;
+    private final JwtUtils jwtUtils;
 
     @Operation(summary = "Authenticate user", description = "Authenticates a user with username/email and password, returning JWT and refresh tokens.")
     @ApiResponses(value = {
@@ -179,5 +184,32 @@ public class AuthController {
     public ResponseEntity<?> test() {
         return ResponseEntity.ok()
                 .body(Map.of("message", "Auth endpoints are accessible"));
+    }
+
+    @Operation(summary = "Refresh access token", description = "Rotates refresh token and issues a new JWT using the refresh token stored in httpOnly cookie.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Token refreshed successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = LoginResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageResponse.class)))
+    })
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(HttpServletRequest request) {
+        Cookie[] cookies = Optional.ofNullable(request.getCookies()).orElse(new Cookie[0]);
+        String cookieName = jwtUtils.getJwtRefreshCookieName();
+        String refreshToken = Arrays.stream(cookies)
+                .filter(c -> cookieName.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(401)
+                    .body(MessageResponse.error("Missing refresh token", new MessageResponse.ErrorDetails(
+                            "MISSING_REFRESH_TOKEN", null, null
+                    )));
+        }
+        return authService.refreshToken(refreshToken);
     }
 }

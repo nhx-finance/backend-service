@@ -42,7 +42,7 @@ import com.javaguy.nhxserver.model.dto.LoginResponse;
 
 @Service
 @RequiredArgsConstructor
-public class AuthService {
+public class AuthService implements com.javaguy.nhxserver.service.security.api.AuthUseCase {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     
     private final AuthenticationManager authenticationManager;
@@ -90,7 +90,9 @@ public class AuthService {
                         userDetails.getEmail(),
                         jwtCookie.getValue(),
                         jwtRefreshCookie.getValue(),
-                        roles
+                        roles,
+                        System.currentTimeMillis() + jwtUtils.getJwtExpirationTimeMs(),
+                        System.currentTimeMillis() + jwtUtils.getRefreshExpirationTimeMs()
                 ));
                 
         } catch (DisabledException e) {
@@ -203,6 +205,58 @@ public class AuthService {
                     .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                     .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
                     .body(new AuthResponse("Logout completed with warnings", null, null, null));
+        }
+    }
+
+    @Transactional
+    public ResponseEntity<?> refreshToken(String refreshToken) {
+        log.info("Refreshing access token using refresh token");
+        try {
+            RefreshToken token = refreshTokenService.findByToken(refreshToken)
+                    .map(refreshTokenService::verifyExpiration)
+                    .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+
+            User user = token.getUser();
+            if (user == null) {
+                throw new RuntimeException("Refresh token not associated with a user");
+            }
+            if (!user.isEnabled() || !user.isEmailVerified()) {
+                log.warn("Refresh attempt for unverified/disabled account: {}", user.getEmail());
+                throw new EmailNotVerifiedException("Account not verified or disabled");
+            }
+
+            // Rotate refresh token
+            RefreshToken newRefresh = refreshTokenService.createRefreshToken(user.getUserId());
+
+            // Build user details for JWT generation
+            UserDetailsImpl userDetails = UserDetailsImpl.build(user);
+
+            ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
+            ResponseCookie jwtRefreshCookie = jwtUtils.generateJwtRefreshCookie(newRefresh.getToken());
+
+            Set<String> roles = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.toSet());
+
+            long now = System.currentTimeMillis();
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                    .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                    .body(new LoginResponse(
+                            "Token refreshed",
+                            user.getEmail(),
+                            jwtCookie.getValue(),
+                            jwtRefreshCookie.getValue(),
+                            roles,
+                            now + jwtUtils.getJwtExpirationTimeMs(),
+                            now + jwtUtils.getRefreshExpirationTimeMs()
+                    ));
+        } catch (Exception e) {
+            log.error("Failed to refresh token", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(MessageResponse.error("Could not refresh token", new MessageResponse.ErrorDetails(
+                            "TOKEN_REFRESH_FAILED", e.getMessage(), null
+                    )));
         }
     }
 }

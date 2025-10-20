@@ -40,6 +40,22 @@ public class JwtUtils {
         this.environment = environment;
     }
 
+    public long getJwtExpirationTimeMs() {
+        return jwtExpirationTime;
+    }
+
+    public long getRefreshExpirationTimeMs() {
+        return refreshExpirationTime;
+    }
+
+    public String getJwtCookieName() {
+        return jwtCookieName;
+    }
+
+    public String getJwtRefreshCookieName() {
+        return jwtRefreshCookieName;
+    }
+
     //generate the token with custom claims
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
@@ -139,7 +155,7 @@ public class JwtUtils {
 
         if (Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
             builder.secure(true);
-            // builder.domain("yourdomain.com");
+            builder.domain("https://nhxwebserver-hzbrdehsdffqhugw.southafricanorth-01.azurewebsites.net/");
         }
         return builder.build();
     }

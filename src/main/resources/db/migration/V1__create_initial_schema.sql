@@ -213,3 +213,10 @@ COMMENT ON TABLE password_reset_tokens IS 'Stores tokens for password reset func
 COMMENT ON TABLE email_verification_tokens IS 'Stores tokens for email verification';
 
 COMMENT ON COLUMN users.wallet_address IS 'Hedera blockchain wallet address';
+
+-- Additional indexes to support common query patterns (added for scalability)
+CREATE INDEX IF NOT EXISTS idx_payment_transaction_user_date ON payment_transaction(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_payment_transaction_user_type_date ON payment_transaction(user_id, type, date);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshot_user_date ON portfolio_snapshot(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_payment_method_user ON payment_method(user_id);
