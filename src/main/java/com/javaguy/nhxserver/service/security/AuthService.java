@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 import com.javaguy.nhxserver.model.dto.MessageResponse;
 import com.javaguy.nhxserver.model.dto.RegistrationResponse;
 import com.javaguy.nhxserver.model.dto.UserInfo;
+import com.javaguy.nhxserver.model.dto.LoginResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -79,20 +80,18 @@ public class AuthService {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
 
-            UserInfo userInfo = new UserInfo(
-                user.getUserId(),
-                user.getUsername(),
-                user.getEmail(),
-                user.getPhoneNumber(),
-                user.getFullName()
-            );
-
             log.info("Authentication successful for user: {}", loginRequest.email());
             
             return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
-                .body(new AuthResponse("Authentication successful", jwtCookie.getValue(), roles, userInfo));
+                .body(new LoginResponse(
+                        "Authentication successful",
+                        userDetails.getEmail(),
+                        jwtCookie.getValue(),
+                        jwtRefreshCookie.getValue(),
+                        roles
+                ));
                 
         } catch (DisabledException e) {
             // Check if the user exists and needs email verification

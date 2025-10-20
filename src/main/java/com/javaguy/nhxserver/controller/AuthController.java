@@ -33,13 +33,13 @@ public class AuthController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User authenticated successfully",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthResponse.class))),
+                            schema = @Schema(implementation = LoginResponse.class))),
             @ApiResponse(responseCode = "400", description = "Invalid credentials or bad request",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthResponse.class))),
+                            schema = @Schema(implementation = MessageResponse.class))),
             @ApiResponse(responseCode = "401", description = "Unauthorized - user not found or disabled",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthResponse.class)))
+                            schema = @Schema(implementation = MessageResponse.class)))
     })
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
