@@ -8,6 +8,10 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Payment transaction entity for fiat movements (deposits/withdrawals), e.g., Mpesa top-ups.
+ * Distinct from Transaction, which captures trading buys/sells of assets.
+ */
 @Entity
 @Data
 @NoArgsConstructor
@@ -20,7 +24,7 @@ public class PaymentTransaction {
     private String transactionId; // public-facing ID
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "userId", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     private String type; // deposit or withdrawal

@@ -7,7 +7,12 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * Trading transaction entity representing buy/sell operations for assets (e.g., stocks).
+ * Not for fiat top-ups or withdrawals — see PaymentTransaction for those.
+ */
 @Entity
+@Table(name = "transactions")
 @Data
 @NoArgsConstructor
 public class Transaction {
@@ -18,7 +23,7 @@ public class Transaction {
     private String transactionId; // public-facing ID
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "userId", nullable = false)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     private String stock;
