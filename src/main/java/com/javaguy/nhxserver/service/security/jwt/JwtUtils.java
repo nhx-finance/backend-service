@@ -155,7 +155,7 @@ public class JwtUtils {
 
         if (Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
             builder.secure(true);
-           // builder.domain("https://nhxwebserver-hzbrdehsdffqhugw.southafricanorth-01.azurewebsites.net/");
+           builder.domain("nhxwebserver-hzbrdehsdffqhugw.southafricanorth-01.azurewebsites.net");
         }
         return builder.build();
     }
