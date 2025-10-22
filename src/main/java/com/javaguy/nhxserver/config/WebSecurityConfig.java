@@ -59,14 +59,19 @@ public class WebSecurityConfig {
                             "/api/v1/auth/password/reset-request",
                             "/api/v1/auth/password/reset/validate",
                             "/api/v1/auth/password/reset",
+                            "/api/v1/auth/verify-email",
+                            "/api/v1/auth/resend-verification-email",
+                            "/api/v1/auth/test",
+                            "/api/v1/auth/refresh",
                             "/swagger-ui/**",
                             "/swagger-ui.html",
                             "/v3/api-docs/**",
                             "/swagger-resources/**",
                             "/webjars/**",
-                            "/actuator/**"
+                            "/actuator/**",
+                            "/h2-console/**"
                     ).permitAll();
-                    authz.requestMatchers("/api/v1/auth/**", "/h2-console/**").permitAll();
+                    authz.requestMatchers("/api/v1/auth/logout").authenticated();
                     authz.anyRequest().authenticated();
                 })
                 .authenticationProvider(authenticationProvider())
