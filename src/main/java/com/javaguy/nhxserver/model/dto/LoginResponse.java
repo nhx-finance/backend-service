@@ -4,7 +4,8 @@ import java.util.Set;
 
 public record LoginResponse(
         String message,
-        String email,
+        String userEmail,
+        Long userId,
         String jwtToken,
         String refreshToken,
         Set<String> roles,
