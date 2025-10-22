@@ -6,6 +6,7 @@ import com.javaguy.nhxserver.repository.TransactionRepository;
 import com.javaguy.nhxserver.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -18,7 +19,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
 
-    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    @Transactional(readOnly = true)
     public List<Transaction> getTransactions(Long userId, String type, LocalDateTime startDate, LocalDateTime endDate) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
