@@ -4,10 +4,14 @@ import com.javaguy.nhxserver.model.dto.*;
 import com.javaguy.nhxserver.service.security.api.AuthUseCase;
 import com.javaguy.nhxserver.service.security.PasswordResetService;
 import com.javaguy.nhxserver.exception.PasswordsMismatchException;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,7 +38,7 @@ public class AuthController {
     private final PasswordResetService passwordResetService;
     private final JwtUtils jwtUtils;
 
-    @Operation(summary = "Authenticate user", description = "Authenticates a user with username/email and password, returning JWT and refresh tokens.")
+    @Operation(summary = "Authenticate user", description = "Authenticates a user with email and password, returning JWT and refresh tokens.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "User authenticated successfully",
                     content = @Content(mediaType = "application/json",
@@ -48,7 +52,20 @@ public class AuthController {
     })
     @PostMapping("/login")
     public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
-        return authService.authenticateUser(request);
+        LoginResponse loginResponse = authService.authenticateUser(request);
+
+        // Generate JWT cookie
+        ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(loginResponse.jwtToken());
+
+        // Generate Refresh Token cookie
+        ResponseCookie refreshCookie = jwtUtils.generateJwtRefreshCookie(loginResponse.refreshToken());
+
+        log.info("Login successful for user with ID: {}", loginResponse.userId());
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(loginResponse);
     }
 
     @Operation(summary = "Register a new user", description = "Registers a new user with provided details, assigns a default role, and sends an email verification link.")
@@ -64,8 +81,8 @@ public class AuthController {
                             schema = @Schema(implementation = MessageResponse.class)))
     })
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
-        return authService.registerUser(request);
+    public ResponseEntity<RegistrationResponse> register(@Valid @RequestBody RegisterRequest request) {
+        return new ResponseEntity<>(authService.registerUser(request), HttpStatus.CREATED);
     }
 
     @Operation(summary = "Logout user", description = "Logs out the currently authenticated user by invalidating their refresh token and clearing JWT cookies.")
@@ -75,8 +92,16 @@ public class AuthController {
                             schema = @Schema(implementation = AuthResponse.class)))
     })
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
-        return authService.logout();
+    public ResponseEntity<?> logout(HttpServletResponse response) {
+        authService.logout();
+
+        Cookie cookie = new Cookie(jwtUtils.getJwtRefreshCookieName(), null);
+        cookie.setMaxAge(0);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        response.addCookie(cookie);
+
+        return new ResponseEntity<>(new MessageResponse("Successfully logged out", "success"), HttpStatus.OK);
     }
 
     @Operation(summary = "Request password reset", description = "Initiates a password reset process by sending a password reset email to the provided email address.")
@@ -157,7 +182,15 @@ public class AuthController {
     })
     @GetMapping("/verify-email")
     public ResponseEntity<?> verifyEmail(@RequestParam("token") String token) {
-        return authService.verifyEmail(token);
+        MessageResponse messageResponse = authService.verifyEmail(token);
+        Object data = messageResponse.data();
+        if (data instanceof Map) {
+            Map<String, Object> dataMap = (Map<String, Object>) data;
+            if (dataMap.containsKey("verified") && (Boolean) dataMap.get("verified")) {
+                return ResponseEntity.ok(messageResponse);
+            }
+        }
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(messageResponse);
     }
 
     @Operation(summary = "Resend email verification link", description = "Resends the email verification link to a user if their account is not yet verified.")
@@ -171,7 +204,7 @@ public class AuthController {
     })
     @PostMapping("/resend-verification-email")
     public ResponseEntity<?> resendVerificationEmail(@Valid @RequestBody PasswordResetRequest request) {
-        return authService.resendVerificationEmail(request.email());
+        return new ResponseEntity<>(authService.resendVerificationEmail(request.email()), HttpStatus.OK);
     }
 
     @Operation(summary = "Test authentication access", description = "A simple endpoint to test if authentication endpoints are accessible. Requires no authentication.")
@@ -210,6 +243,6 @@ public class AuthController {
                             "MISSING_REFRESH_TOKEN", null, null
                     )));
         }
-        return authService.refreshToken(refreshToken);
+        return new ResponseEntity<>(authService.refreshToken(refreshToken), HttpStatus.OK);
     }
 }
