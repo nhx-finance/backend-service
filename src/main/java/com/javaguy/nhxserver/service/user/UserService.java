@@ -143,14 +143,6 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
             user.setUsername(request.username());
         }
 
-
-        if (request.phoneNumber() != null && !request.phoneNumber().equals(user.getPhoneNumber())) {
-            if (userRepository.existsByPhoneNumber(request.phoneNumber())) {
-                throw new UserAlreadyExistsException("Phone number is already registered");
-            }
-            user.setPhoneNumber(request.phoneNumber());
-        }
-
         userRepository.save(user);
         return new MessageResponse("Profile updated successfully", user.getUpdatedAt());
     }

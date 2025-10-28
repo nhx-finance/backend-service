@@ -24,16 +24,21 @@ spring:
       mail.smtp.starttls.required: true
     protocol: smtp
 
-azure:
-  storage:
-    account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
-    account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
-    container-name: ${AZURE_CONTAINER_NAME}
+#azure:
+#  storage:
+#    account-name: ${AZURE_STORAGE_ACCOUNT_NAME}
+#    account-key: ${AZURE_STORAGE_ACCOUNT_KEY}
+#    container-name: ${AZURE_CONTAINER_NAME}
 
 hedera:
-  testnet:
-    accountId: ${HEDERA_ACCOUNT_ID}
-    privateKey: ${HEDERA_PRIVATE_KEY}
+  network: testnet
+  operator-id: ${HEDERA_OPERATOR_ID}
+  operator-key: ${HEDERA_OPERATOR_KEY}
+  token-ids:
+    - ${HEDERA_TOKEN_ID_1}
+    - ${HEDERA_TOKEN_ID_2}
+  mirror-node-url: https://testnet.mirrornode.hedera.com
+  transaction-timeout-seconds: 30
 
 nhx:
   app:
@@ -45,6 +50,10 @@ nhx:
     base-url: ${APP_BASE_URL}
     passwordResetExpirationMs: 1800000
 
+exchange:
+  rate-source: ${EXCHANGE_RATE_SOURCE:fixed}
+  default-rate: ${EXCHANGE_DEFAULT_RATE:1000}
+  fee-percentage: ${EXCHANGE_FEE_PERCENTAGE:2.0}
 
 server:
   servlet:
@@ -55,10 +64,18 @@ server:
         same-site: strict
   ssl:
     enabled: false
-  port: 8080
 
 logging:
   level:
     root: INFO
     org.springframework.security: WARN
     com.javaguy.nhxserver: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+admin:
+  email: ${ADMIN_EMAIL:admin@example.com}

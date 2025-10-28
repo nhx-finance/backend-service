@@ -1,77 +1,344 @@
 package com.javaguy.nhxserver.service.hedera;
 
 import com.hedera.hashgraph.sdk.*;
+import com.javaguy.nhxserver.config.HederaConfig;
 import com.javaguy.nhxserver.exception.ApiException;
-import com.javaguy.nhxserver.model.dto.WalletRequestDto;
-import com.javaguy.nhxserver.model.entity.User;
-import com.javaguy.nhxserver.repository.UserRepository;
-import jakarta.transaction.Transactional;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import com.javaguy.nhxserver.model.dto.HederaTransactionResponse;
+import com.javaguy.nhxserver.model.entity.Transaction;
+import com.javaguy.nhxserver.model.enums.TransactionStatus;
+import com.javaguy.nhxserver.model.enums.TransactionType;
+import com.javaguy.nhxserver.repository.TransactionRepository;
+import com.javaguy.nhxserver.service.PortfolioService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
 
+/**
+ * Service for handling Hedera token transfers.
+ * Only handles transfers from treasury to user accounts.
+ */
 @Service
-@RequiredArgsConstructor
+@Slf4j
 public class HederaService {
+    private final Client client;
+    private final TokenId nhsafTokenId;
+    private final TokenId usdcTokenId;
+    private final AccountId treasuryAccountId;
+    private final PrivateKey treasuryPrivateKey;
+    private final TransactionRepository transactionRepository;
+    private final PortfolioService portfolioService;
 
-    private final UserRepository userRepository;
-    private final Client hederaClient;
-    private final JavaMailSender mailSender;
+    private static final int TOKEN_DECIMALS = 2;
+    private static final int USDC_DECIMALS = 6;
+    private static final long MAX_TRANSACTION_FEE_HBAR = 2;
 
-    private User findUserAndCheckWallet(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ApiException("User not found", HttpStatus.NOT_FOUND));
-        if (user.getWalletAddress() != null) {
-            throw new ApiException("Wallet already exists", HttpStatus.CONFLICT);
+    public HederaService(Client client,
+            HederaConfig hederaConfig,
+            TransactionRepository transactionRepository,
+            PortfolioService portfolioService) {
+        this.client = client;
+        this.nhsafTokenId = TokenId.fromString(hederaConfig.getNhsafTokenId());
+        this.usdcTokenId = TokenId.fromString(hederaConfig.getUsdcTokenId());
+        this.treasuryAccountId = AccountId.fromString(hederaConfig.getTreasuryAccountId());
+        this.treasuryPrivateKey = PrivateKey.fromString(hederaConfig.getOperatorKey());
+        this.transactionRepository = transactionRepository;
+        this.portfolioService = portfolioService;
+
+        log.info("HederaService initialized with treasury account: {}, nhSAF token: {}",
+                treasuryAccountId, nhsafTokenId);
+    }
+
+    /**
+     * Transfer tokens from treasury to a user's account and update their portfolio
+     * 
+     * @param userId                Internal user ID for portfolio tracking
+     * @param recipientAccountIdStr Hedera account ID to receive tokens
+     * @param tokenAmount           Amount of tokens to transfer (in smallest units)
+     * @return Transaction details including Hedera transaction ID
+     */
+    @Transactional
+    public HederaTransactionResponse transferTokens(Long userId, String recipientAccountIdStr, long tokenAmount) {
+        log.info("Transferring {} tokens to account {}", tokenAmount, recipientAccountIdStr);
+
+        // Validate account ID
+        if (!isValidAccountId(recipientAccountIdStr)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid account ID format");
         }
-        return user;
-    }
+        AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
 
-    private void createHederaWallet(User user) throws TimeoutException, PrecheckStatusException, ReceiptStatusException {
-        PrivateKey privateKey = PrivateKey.generateED25519();
-        PublicKey publicKey = privateKey.getPublicKey();
-        AccountCreateTransaction accountCreateTransaction = new AccountCreateTransaction()
-                .setKeyWithoutAlias(publicKey)
-                .setInitialBalance(Hbar.fromTinybars(1000));
-        TransactionResponse txResponse = accountCreateTransaction.execute(hederaClient);
-        AccountId accountId = txResponse.getReceipt(hederaClient).accountId;
+        try {
+            // Create the transfer transaction
+            TransferTransaction transaction = new TransferTransaction()
+                    .addTokenTransfer(nhsafTokenId, treasuryAccountId, -tokenAmount)
+                    .addTokenTransfer(nhsafTokenId, recipientAccountId, tokenAmount)
+                    .setMaxTransactionFee(new Hbar(MAX_TRANSACTION_FEE_HBAR))
+                    .freezeWith(client);
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(user.getEmail());
-        message.setSubject("Your NSEVault Wallet");
-        message.setText("Address: " + accountId + "\nPrivate Key: " + privateKey + "\nSave securely!");
-        mailSender.send(message);
+            // Sign and execute
+            TransactionResponse txResponse = transaction
+                    .sign(treasuryPrivateKey)
+                    .execute(client);
 
-        if (accountId != null) {
-            user.setWalletAddress(accountId.toString());
+            // Get the receipt
+            TransactionReceipt receipt = txResponse.getReceipt(client);
+
+            if (receipt.status == Status.SUCCESS) {
+                String transactionId = txResponse.transactionId.toString();
+                log.info("Successfully transferred {} tokens to account {}, txn: {}",
+                        tokenAmount, recipientAccountId, transactionId);
+
+                // Convert token amount to decimal format
+                BigDecimal tokenDecimalAmount = BigDecimal.valueOf(tokenAmount)
+                        .movePointLeft(TOKEN_DECIMALS);
+
+                // Update user's portfolio
+                portfolioService.updatePortfolio(
+                        userId,
+                        nhsafTokenId.toString(),
+                        tokenDecimalAmount,
+                        TransactionType.TOKEN_TRANSFER);
+
+                // Record the transaction
+                Transaction tx = Transaction.builder()
+                        .type(TransactionType.TOKEN_TRANSFER)
+                        .status(TransactionStatus.COMPLETED)
+                        .tokenAmount(tokenDecimalAmount)
+                        .hederaAccountId(recipientAccountIdStr)
+                        .hederaTransactionId(transactionId)
+                        .memo("Token transfer from treasury")
+                        .completedAt(LocalDateTime.now())
+                        .build();
+
+                transactionRepository.save(tx);
+
+                return HederaTransactionResponse.builder()
+                        .success(true)
+                        .transactionId(transactionId)
+                        .status(receipt.status.toString())
+                        .message(String.format("Successfully transferred %s tokens", tokenDecimalAmount))
+                        .build();
+
+            } else {
+                log.error("Token transfer failed with status: {}", receipt.status);
+                throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "TransferFailed",
+                        "Transaction failed with status: " + receipt.status);
+            }
+
+        } catch (Exception e) {
+            handleTransactionException(e);
+            return null; // This will never be reached as handleTransactionException always throws
         }
     }
 
-    private void linkExistingWallet(User user, String accountIdStr) {
-        AccountId accountId = AccountId.fromString(accountIdStr);
-        user.setWalletAddress(accountId.toString());
+    /**
+     * Sell tokens: burn the incoming token and send USDC from the treasury to the
+     * recipient.
+     *
+     * The frontend must send the tokenId (the token being sold), the amount to burn
+     * (in
+     * smallest units) and the amount of USDC to send (in USDC smallest units,
+     * typically 6 decimals),
+     * and the recipient Hedera account id that should receive the USDC.
+     */
+    @Transactional
+    public HederaTransactionResponse sellTokens(Long userId,
+            String tokenIdStr,
+            long amountToBurn,
+            String recipientAccountIdStr,
+            long amountUsdcToSend) {
+        log.info("Sell request: user={}, tokenId={}, burnAmount={}, usdcAmount={}, recipient={}",
+                userId, tokenIdStr, amountToBurn, amountUsdcToSend, recipientAccountIdStr);
+
+        if (!isValidAccountId(recipientAccountIdStr)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid recipient account ID format");
+        }
+
+        TokenId tokenId;
+        try {
+            tokenId = TokenId.fromString(tokenIdStr);
+        } catch (Exception ex) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid tokenId format");
+        }
+
+        AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
+
+        try {
+            // Burn the sold tokens (requires supply/admin key)
+            TokenBurnTransaction burnTx = new TokenBurnTransaction()
+                    .setTokenId(tokenId)
+                    .setAmount(amountToBurn)
+                    .freezeWith(client);
+
+            TransactionResponse burnResponse = burnTx
+                    .sign(treasuryPrivateKey)
+                    .execute(client);
+
+            TransactionReceipt burnReceipt = burnResponse.getReceipt(client);
+
+            if (burnReceipt.status != Status.SUCCESS) {
+                log.error("Token burn failed for token {} status={}", tokenId, burnReceipt.status);
+                throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "BurnFailed",
+                        "Token burn failed: " + burnReceipt.status);
+            }
+
+            log.info("Token burn succeeded: token={}, amount={}, burnTxn={}",
+                    tokenId, amountToBurn, burnResponse.transactionId);
+
+            // Transfer USDC from treasury to recipient
+            TransferTransaction usdcTransfer = new TransferTransaction()
+                    .addTokenTransfer(usdcTokenId, treasuryAccountId, -amountUsdcToSend)
+                    .addTokenTransfer(usdcTokenId, recipientAccountId, amountUsdcToSend)
+                    .setMaxTransactionFee(new Hbar(MAX_TRANSACTION_FEE_HBAR))
+                    .freezeWith(client);
+
+            TransactionResponse usdcTxResp = usdcTransfer
+                    .sign(treasuryPrivateKey)
+                    .execute(client);
+
+            TransactionReceipt usdcReceipt = usdcTxResp.getReceipt(client);
+
+            if (usdcReceipt.status != Status.SUCCESS) {
+                log.error("USDC transfer failed: status={}", usdcReceipt.status);
+                throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "UsdcTransferFailed",
+                        "USDC transfer failed: " + usdcReceipt.status);
+            }
+
+            log.info("USDC transfer succeeded to {} amount={} txn={}", recipientAccountId, amountUsdcToSend,
+                    usdcTxResp.transactionId);
+
+            // Convert amounts to decimals for portfolio/recording
+            BigDecimal tokenDecimalAmount = BigDecimal.valueOf(amountToBurn).movePointLeft(TOKEN_DECIMALS);
+            BigDecimal usdcDecimalAmount = BigDecimal.valueOf(amountUsdcToSend).movePointLeft(USDC_DECIMALS);
+
+            // Update user's portfolio (subtract sold tokens)
+            portfolioService.updatePortfolio(userId, tokenId.toString(), tokenDecimalAmount, TransactionType.SALE);
+
+            // Record transaction (store USDC transfer tx id as primary)
+            Transaction tx = Transaction.builder()
+                    .type(TransactionType.SALE)
+                    .status(TransactionStatus.COMPLETED)
+                    .amountUsdc(usdcDecimalAmount)
+                    .tokenAmount(tokenDecimalAmount)
+                    .hederaAccountId(recipientAccountIdStr)
+                    .hederaTransactionId(usdcTxResp.transactionId.toString())
+                    .memo(String.format("Sold %s tokens for %s USDC", tokenDecimalAmount, usdcDecimalAmount))
+                    .completedAt(LocalDateTime.now())
+                    .build();
+
+            transactionRepository.save(tx);
+
+            return HederaTransactionResponse.builder()
+                    .success(true)
+                    .transactionId(usdcTxResp.transactionId.toString())
+                    .status(usdcReceipt.status.toString())
+                    .message(String.format("Burned %s tokens and transferred %s USDC", tokenDecimalAmount,
+                            usdcDecimalAmount))
+                    .build();
+
+        } catch (Exception e) {
+            handleTransactionException(e);
+            return null; // unreachable
+        }
     }
 
-//    //create, link, or manage a user's Hedera wallet
-//    @Transactional
-//    public void manageWallet(Long userId, @Valid WalletRequestDto dto) throws TimeoutException, PrecheckStatusException, ReceiptStatusException {
-//        User user = findUserAndCheckWallet(userId);
-//
-//        if ("create".equalsIgnoreCase(dto.action())) {
-//            createHederaWallet(user);
-//        } else if ("link".equalsIgnoreCase(dto.action())) {
-//            if (dto.accountId() == null) {
-//                throw new ApiException("Account ID required for linking", HttpStatus.BAD_REQUEST);
-//            }
-//            linkExistingWallet(user, dto.accountId());
-//        } else {
-//            throw new ApiException("Invalid action", HttpStatus.BAD_REQUEST);
-//        }
-//        userRepository.save(user);
-//    }
+    /**
+     * Handle transaction errors
+     */
+    private void handleTransactionException(Exception e) {
+        log.error("Error during token transfer: {}", e.getMessage(), e);
+
+        if (e instanceof PrecheckStatusException pre) {
+            String message = switch (pre.status.toString()) {
+                case "INSUFFICIENT_ACCOUNT_BALANCE" ->
+                    "Insufficient balance to complete transaction";
+                case "INVALID_ACCOUNT_ID" ->
+                    "Invalid account ID provided";
+                case "INSUFFICIENT_TOKEN_BALANCE" ->
+                    "Insufficient token balance for this transaction";
+                case "TOKEN_NOT_ASSOCIATED_TO_ACCOUNT" ->
+                    "Token not associated with account. Please associate tokens first";
+                default ->
+                    "Transaction precheck failed: " + pre.getMessage();
+            };
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PrecheckFailed", message);
+        } else if (e instanceof ReceiptStatusException rec) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "ReceiptStatusError",
+                    "Transaction failed during execution: " + rec.getMessage());
+        } else if (e instanceof TimeoutException) {
+            throw new ApiException(HttpStatus.REQUEST_TIMEOUT,
+                    "HederaTimeout",
+                    "Transaction timed out. Please try again.");
+        } else if (e instanceof ApiException apiEx) {
+            throw apiEx;
+        } else {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "UnexpectedError",
+                    "An unexpected error occurred: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Validate account ID format
+     */
+    private boolean isValidAccountId(String accountIdStr) {
+        try {
+            AccountId.fromString(accountIdStr);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Get the treasury account ID
+     */
+    public String getTreasuryAccountIdString() {
+        return treasuryAccountId.toString();
+    }
+
+    /**
+     * Compatibility accessor used by other components
+     */
+    public String getTreasuryAccountId() {
+        return getTreasuryAccountIdString();
+    }
+
+    /**
+     * Get configured token IDs
+     */
+    public String getNhsafTokenId() {
+        return nhsafTokenId.toString();
+    }
+
+    public String getUsdcTokenId() {
+        return usdcTokenId.toString();
+    }
+
+    /**
+     * Query token balance for an account and token
+     */
+    public long getTokenBalance(AccountId accountId, TokenId tokenId) {
+        try {
+            AccountBalance balance = new AccountBalanceQuery()
+                    .setAccountId(accountId)
+                    .execute(client);
+
+            Long val = balance.tokens.get(tokenId);
+            return val == null ? 0L : val.longValue();
+        } catch (Exception e) {
+            log.error("Failed to fetch token balance for account {} token {}: {}", accountId, tokenId, e.getMessage());
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR,
+                    "BalanceQueryFailed",
+                    "Failed to query token balance: " + e.getMessage());
+        }
+    }
 }

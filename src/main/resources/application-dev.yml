@@ -1,54 +1,73 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:nhxdb
+    url: jdbc:h2:mem:nhxserverdb
     driverClassName: org.h2.Driver
     username: sa
     password: password
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: true
     hibernate:
       ddl-auto: update
-    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  mail:
+    host: localhost
+    port: 1025
+    username: user
+    password: password
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+  flyway:
+    enabled: false
   h2:
     console:
       enabled: true
       path: /h2-console
-  mail:
-    host: localhost
-    port: 1025
-    username: mongsdev@gmail.com
-    password:
-    protocol: smtp
 
-hedera:
-  testnet:
-    accountId: ${ACCOUNT_ID}
-    privateKey: ${PRIVATE_KEY}
-azure:
-  storage:
-    account-name: nhxstorage
-    account-key: ${ACCOUNT_KEY}
-    container-name: nhx-dev
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
 
 nhx:
   app:
-    jwtSecret: 5367566859703373367639792F423F452848284D6251655468576D5A71347437
-    jwtExpirationMs: 900000  # 15 minutes
+    jwtSecret: 5367566B59703373367639792F423F4528482B4D6251655368566D5971337436
+    jwtExpirationMs: 86400000 # 24 hours
     jwtRefreshExpirationMs: 86400000  # 24 hours
     jwtCookieName: nhxJwtToken
     jwtRefreshCookieName: nhxRefreshToken
     base-url: http://localhost:8080
     passwordResetExpirationMs: 1800000  # 30 minutes
 
-server:
-  servlet:
-    session:
-      cookie:
-        secure: true
-        http-only: true
-        same-site: strict
-  ssl:
-    enabled: false
+
+hedera:
+  network: testnet
+  operator-id: "0.0."
+  operator-key: ""
+  token:
+    nhsaf: 0.0.0.0.
+    usdc: 0.0.
+  mirror-node-url: https://testnet.mirrornode.hedera.com
+  treasury-account-id: 0.0.5800339
+  transaction-timeout-seconds: 30
+exchange:
+  rate-source: fixed # or api
+  default-rate: 1000 # 1 token = 1000 KES
+  fee-percentage: 2.0
+
+limits:
+  min-purchase-kes: 100
+  max-purchase-kes: 100000
+  min-sale-tokens: 0.01
+  max-sale-tokens: 1000
+  transaction-timeout-minutes: 30
+  treasury-min-balance: 50 # Example minimum balance for treasury tokens
+
+admin:
+  email: admin@example.com
 
 logging:
   level:

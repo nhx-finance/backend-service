@@ -1,32 +1,52 @@
 package com.javaguy.nhxserver.model.entity;
 
-import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Portfolio Snapshot entity - historical portfolio values
+ */
 @Entity
+@Table(name = "portfolio_snapshots", indexes = {
+        @Index(name = "idx_user_snapshot_time", columnList = "user_id,snapshot_time"),
+        @Index(name = "idx_snapshot_time", columnList = "snapshot_time")
+})
 @Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class PortfolioSnapshot {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id", updatable = false, nullable = false)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
-    private LocalDate date;
-    private BigDecimal balance;
+    @Column(name = "snapshot_time", nullable = false)
+    private LocalDateTime snapshotTime;
 
-    private LocalDateTime createdAt;
+    @Column(name = "total_value_usdc", precision = 19, scale = 6)
+    private BigDecimal totalValueUsdc;
+
+    @Column(name = "exchange_rate", precision = 19, scale = 6)
+    private BigDecimal exchangeRate;
+
+    @Column(name = "holdings_json", columnDefinition = "TEXT")
+    private String holdingsJson; // JSON representation of all holdings
 
     @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
+    public void prePersist() {
+        // if (id == null) { // Removed manual ID generation
+        //     id = UUID.randomUUID();
+        // }
     }
 }

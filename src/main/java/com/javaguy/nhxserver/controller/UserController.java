@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -39,11 +40,12 @@ import com.javaguy.nhxserver.model.dto.ProductAccessDto;
 import com.javaguy.nhxserver.model.dto.PaymentMethodDto;
 import com.javaguy.nhxserver.model.dto.AddPaymentMethodRequest;
 import com.javaguy.nhxserver.model.dto.PaymentTransactionDto;
-import com.javaguy.nhxserver.service.PortfolioSnapshotService;
+import com.javaguy.nhxserver.service.PortfolioService;
 import com.javaguy.nhxserver.service.TransactionService;
 import com.javaguy.nhxserver.service.ProductAccessService;
 import com.javaguy.nhxserver.service.PaymentMethodService;
 import com.javaguy.nhxserver.service.PaymentTransactionService;
+import com.javaguy.nhxserver.service.user.UserProfileQueryService;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,6 +56,9 @@ import com.javaguy.nhxserver.model.entity.Transaction;
 import com.javaguy.nhxserver.model.entity.PaymentMethod;
 import com.javaguy.nhxserver.model.entity.PaymentTransaction;
 import org.springframework.format.annotation.DateTimeFormat;
+import com.javaguy.nhxserver.service.user.UserService;
+import org.springframework.security.access.AccessDeniedException;
+import com.javaguy.nhxserver.model.enums.TransactionStatus;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -62,16 +67,15 @@ import org.springframework.format.annotation.DateTimeFormat;
 @Tag(name = "User Management", description = "APIs for managing user profiles and data")
 public class UserController {
 
-    private final com.javaguy.nhxserver.service.user.api.UserUseCase userService;
-        private final com.javaguy.nhxserver.service.user.UserProfileQueryService userProfileQueryService;
-    private final AzureBlobStorageService azureBlobStorageService;
-    private final HederaService hederaService;
+    private final UserService userService;
+   // private final AzureBlobStorageService azureBlobStorageService;
     private final AuthService authService;
-    private final PortfolioSnapshotService portfolioSnapshotService;
+    private final PortfolioService portfolioService;
     private final TransactionService transactionService;
     private final ProductAccessService productAccessService;
     private final PaymentMethodService paymentMethodService;
     private final PaymentTransactionService paymentTransactionService;
+    private final UserProfileQueryService userProfileQueryService;
 
     @Operation(summary = "Get user profile by ID", description = "Retrieves the complete profile for a given user ID.")
     @ApiResponses(value = {
@@ -91,8 +95,9 @@ public class UserController {
     @GetMapping("/{userId}")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<UserResponse> getUserProfile(@PathVariable Long userId) {
-        UserResponse response = userProfileQueryService.buildUserProfile(userId);
-        return ResponseEntity.ok(response);
+        log.info("Fetching user profile for userId: {}", userId);
+        UserResponse userProfile = userProfileQueryService.buildUserProfile(userId);
+        return ResponseEntity.ok(userProfile);
     }
 
     @Operation(summary = "Update user details", description = "Updates the details of a specific user. Requires user to be authenticated and authorized.")
@@ -119,10 +124,16 @@ public class UserController {
     @PatchMapping("/{userId}")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<MessageResponse> updateUser(@PathVariable Long userId, @Valid @RequestBody UpdateUserRequest request) {
-            MessageResponse response = userService.updateUser(userId, request);
-            return ResponseEntity.ok(response);
+        log.info("Updating user profile for userId: {}", userId);
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        if (!user.getUserId().equals(userId)) {
+            throw new AccessDeniedException("You are not authorized to update this user's profile");
+        }
+        MessageResponse response = userService.updateUser(userId, request);
+        return ResponseEntity.ok(response);
     }
-
+/*
     @Operation(summary = "Upload user profile image", description = "Uploads a profile image for a specific user.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Profile image uploaded successfully",
@@ -141,6 +152,7 @@ public class UserController {
     @PostMapping(value = "/{userId}/profile-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<?> uploadProfileImage(@PathVariable Long userId, @RequestParam("image") MultipartFile file) throws IOException {
+        log.info("Uploading profile image for userId: {}", userId);
         User user = userService.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
@@ -158,7 +170,7 @@ public class UserController {
 
         return ResponseEntity.ok(Map.of("profileImageUrl", newImageUrl, "uploadedAt", user.getUpdatedAt()));
     }
-
+*/
     @Operation(summary = "Get user profile image URL", description = "Retrieves the public URL of a user's profile image.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Profile image URL retrieved successfully",
@@ -201,8 +213,14 @@ public class UserController {
     @PostMapping("/{userId}/wallet")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<MessageResponse> setWalletAddress(@PathVariable Long userId, @Valid @RequestBody WalletRequestDto request) {
-            MessageResponse response = userService.setWalletAddress(userId, request.walletAddress());
-            return ResponseEntity.ok(response);
+        log.info("User {} setting wallet address for userId: {}", userService.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId)).getEmail(), userId);
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        if (!user.getUserId().equals(userId)) {
+            throw new AccessDeniedException("You are not authorized to set wallet address for this user");
+        }
+        MessageResponse response = userService.setWalletAddress(userId, request.walletAddress());
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get user wallet address", description = "Retrieves the blockchain wallet address for a specific user.")
@@ -217,8 +235,14 @@ public class UserController {
     @GetMapping("/{userId}/wallet")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<WalletResponse> getWalletAddress(@PathVariable Long userId) {
-            WalletResponse walletResponse = userService.getWalletAddress(userId);
-            return ResponseEntity.ok(walletResponse);
+        log.info("User {} getting wallet address for userId: {}", userService.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId)).getEmail(), userId);
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        if (!user.getUserId().equals(userId)) {
+            throw new AccessDeniedException("You are not authorized to get wallet address for this user");
+        }
+        WalletResponse walletResponse = userService.getWalletAddress(userId);
+        return ResponseEntity.ok(walletResponse);
     }
 
     @Operation(summary = "Submit KYC information", description = "Submits KYC (Know Your Customer) information for a user.")
@@ -236,8 +260,14 @@ public class UserController {
     @PostMapping("/{userId}/kyc")
     @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
     public ResponseEntity<MessageResponse> submitKyc(@PathVariable Long userId, @Valid @RequestBody KycSubmissionDto kycDto) {
-            MessageResponse response = userService.submitKyc(userId, kycDto);
-            return ResponseEntity.ok(response);
+        log.info("User {} submitting KYC for userId: {}", userService.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId)).getEmail(), userId);
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        if (!user.getUserId().equals(userId)) {
+            throw new AccessDeniedException("You are not authorized to submit KYC for this user");
+        }
+        MessageResponse response = userService.submitKyc(userId, kycDto);
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get user portfolio history", description = "Retrieves the historical portfolio snapshots for a user within a given date range.")
@@ -258,11 +288,12 @@ public class UserController {
             @PathVariable Long userId,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate) {
-            List<PortfolioSnapshot> snapshots = portfolioSnapshotService.getPortfolioHistory(userId, startDate, endDate);
-            List<PortfolioSnapshotDto> dtos = snapshots.stream()
+            List<PortfolioSnapshotDto> snapshots = portfolioService.getPortfolioHistory(userId, 
+                startDate != null ? startDate.atStartOfDay() : null, 
+                endDate != null ? endDate.atTime(23, 59, 59) : null).stream()
                     .map(PortfolioSnapshotDto::fromEntity)
                     .collect(Collectors.toList());
-            return ResponseEntity.ok(dtos);
+            return ResponseEntity.ok(snapshots);
     }
 
     @Operation(summary = "Get user transactions", description = "Retrieves a list of transactions for a user, with optional filtering by type and date range.")
@@ -285,11 +316,10 @@ public class UserController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
 
-            List<Transaction> transactions = transactionService.getTransactions(userId, type, startDate, endDate);
-            List<TransactionDto> dtos = transactions.stream()
+            List<TransactionDto> transactions = transactionService.getUserTransactions(userId, type != null ? TransactionStatus.valueOf(type.toUpperCase()) : null, startDate, endDate).stream()
                     .map(TransactionDto::fromEntity)
                     .collect(Collectors.toList());
-            return ResponseEntity.ok(dtos);
+            return ResponseEntity.ok(transactions);
 
     }
 
