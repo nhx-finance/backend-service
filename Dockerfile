@@ -1,35 +1,32 @@
-# Multi-stage Dockerfile for nhxserver
-# Build stage: uses Maven wrapper if present to build the fat jar
-FROM maven:3.9.4-eclipse-temurin-17 AS build
-WORKDIR /workspace
+# Multi-stage Dockerfile for nhxserver with dependency caching
+# Stage 1: Download dependencies (cached layer)
+FROM maven:3.9-eclipse-temurin-21 AS dependencies
+WORKDIR /app
 
-# Cache Maven wrapper and settings if present
-COPY .mvn .mvn
-COPY mvnw mvnw
-COPY pom.xml pom.xml
-COPY settings.xml settings.xml
+# Copy only pom.xml first to cache dependencies
+COPY pom.xml .
 
-# Copy source and build
+# Download all dependencies with retry logic
+RUN mvn dependency:go-offline -B || \
+    mvn dependency:resolve -B || \
+    mvn dependency:resolve-plugins -B
+
+# Stage 2: Build the application
+FROM maven:3.9-eclipse-temurin-21 AS builder
+WORKDIR /app
+
+# Copy the cached dependencies from previous stage
+COPY --from=dependencies /root/.m2 /root/.m2
+
+# Copy pom.xml and source code
+COPY pom.xml .
 COPY src ./src
-RUN if [ -f mvnw ]; then chmod +x mvnw && ./mvnw -B -DskipTests package; else mvn -B -DskipTests package; fi
 
-# Runtime stage
-FROM eclipse-temurin:17-jre-jammy
-WORKDIR /app
+# Build the application
+RUN mvn clean package -DskipTests -B
 
-# Copy jar produced by the build stage
-COPY --from=build /workspace/target/*-*.jar /app/app.jar
-
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-# Build stage
-FROM maven:3.9.5-eclipse-temurin-17 AS builder
-WORKDIR /app
-COPY . .
-RUN mvn clean package -DskipTests
-
-# Run stage
-FROM eclipse-temurin:17-jre-alpine
+# Stage 3: Runtime
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Create a non-root user
@@ -46,10 +43,19 @@ USER javauser
 
 # Set environment variables
 ENV SPRING_PROFILES_ACTIVE=prod
-ENV PORT=8080
+ENV PORT=8084
 
 # Expose the application port
 EXPOSE ${PORT}
 
-# Start the application
-CMD ["java", "-jar", "app.jar"]
+# Health check (optional but recommended)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT}/actuator/health || exit 1
+
+# Start the application with optimized JVM settings
+ENTRYPOINT ["java", \
+    "-XX:+UseContainerSupport", \
+    "-XX:MaxRAMPercentage=75.0", \
+    "-XX:+ExitOnOutOfMemoryError", \
+    "-Djava.security.egd=file:/dev/./urandom", \
+    "-jar", "app.jar"]
