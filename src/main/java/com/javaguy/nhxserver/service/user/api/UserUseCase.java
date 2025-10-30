@@ -13,7 +13,7 @@ public interface UserUseCase {
     List<Asset> getAssetsByUserId(Long userId);
 
     MessageResponse submitKyc(Long userId, KycSubmissionDto kycDto);
-    MessageResponse setWalletAddress(Long userId, String walletAddress);
+    MessageResponse setWalletAddress(Long userId, String walletAddress, String walletName);
     WalletResponse getWalletAddress(Long userId);
 
     User registerUser(RegisterRequest request);

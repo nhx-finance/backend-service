@@ -3,6 +3,7 @@ package com.javaguy.nhxserver.service.user;
 import com.javaguy.nhxserver.exception.UserNotFound;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.repository.UserRepository;
+import com.javaguy.nhxserver.service.user.api.UserUseCase;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -34,7 +35,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class UserService implements com.javaguy.nhxserver.service.user.api.UserUseCase {
+public class UserService implements UserUseCase {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
@@ -97,7 +98,7 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
     private static final Pattern ETHEREUM_ADDRESS_PATTERN = Pattern.compile("^0x[a-fA-F0-9]{40}$");
 
     @Transactional
-    public MessageResponse setWalletAddress(Long userId, String walletAddress) {
+    public MessageResponse setWalletAddress(Long userId, String walletAddress, String walletName) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
@@ -110,6 +111,7 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
         }
 
         user.setWalletAddress(walletAddress);
+        user.setWalletName(walletName); // Set the wallet name
         userRepository.save(user);
         return new MessageResponse("Wallet address set successfully", user.getUpdatedAt());
     }
@@ -122,7 +124,7 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
         if (user.getWalletAddress() == null || user.getWalletAddress().isEmpty()) {
             throw new ResourceNotFoundException("Wallet address not set for user with id " + userId);
         }
-        return new WalletResponse(user.getWalletAddress());
+        return new WalletResponse(user.getWalletAddress(), user.getWalletName());
     }
 
     @Transactional
@@ -139,6 +141,7 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
                 .phoneNumber("")
                 .profileImageUrl(null)
                 .walletAddress(null)
+                .walletName(null)
                 .build();
 
         // Assign default role

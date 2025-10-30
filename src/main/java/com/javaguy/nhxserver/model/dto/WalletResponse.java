@@ -1,6 +1,7 @@
 package com.javaguy.nhxserver.model.dto;
 
 public record WalletResponse(
-        String walletAddress
+        String walletAddress,
+        String walletName
 ) {
 }

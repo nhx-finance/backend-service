@@ -57,6 +57,9 @@ public class User {
     @Column(name = "wallet_address")
     private String walletAddress;
 
+    @Column(name = "wallet_name")
+    private String walletName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status")
     private KycStatus kycStatus = KycStatus.NOT_SUBMITTED;

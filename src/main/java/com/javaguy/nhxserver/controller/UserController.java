@@ -219,7 +219,7 @@ public class UserController {
         if (!user.getUserId().equals(userId)) {
             throw new AccessDeniedException("You are not authorized to set wallet address for this user");
         }
-        MessageResponse response = userService.setWalletAddress(userId, request.walletAddress());
+        MessageResponse response = userService.setWalletAddress(userId, request.walletAddress(), request.walletName());
         return ResponseEntity.ok(response);
     }
 
