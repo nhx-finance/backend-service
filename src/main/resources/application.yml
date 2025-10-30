@@ -12,8 +12,8 @@ management:
         include: health,metrics,info,prometheus
   endpoint:
     health:
-      show-details: when-authorized
-      show-components: when-authorized
+      show-details: always
+      show-components: always
   info:
     env:
       enabled: true

@@ -45,7 +45,7 @@ public class EmailVerificationService {
         tokenRepository.deleteByUser(user);
 
         String token = UUID.randomUUID().toString();
-        int expiryMinutes = (int) (tokenExpirationMs / 60000); // Convert ms to minutes
+        int expiryMinutes = (int) (tokenExpirationMs / 60000);
         
         EmailVerificationToken verificationToken = new EmailVerificationToken(token, user, expiryMinutes);
         tokenRepository.save(verificationToken);

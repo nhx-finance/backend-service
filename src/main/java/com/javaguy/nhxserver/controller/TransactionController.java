@@ -28,41 +28,6 @@ public class TransactionController {
 
         private final TransactionService transactionService;
 
-        @PostMapping("/purchase")
-        public ResponseEntity<TransactionInitiationResponse> initiatePurchase(
-                        @AuthenticationPrincipal UserDetailsImpl userDetails,
-                        @Valid @RequestBody PurchaseRequest request) {
-                // Purchase endpoint is not implemented in the current service. Return 501.
-                return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-        }
-
-        @PostMapping("/sell")
-        public ResponseEntity<TransactionInitiationResponse> initiateSale(
-                        @AuthenticationPrincipal UserDetailsImpl userDetails,
-                        @Valid @RequestBody SellRequest request) {
-                log.info("User {} initiating sale - token={}, tokenAmount={}, usdcAmount={}, hederaAccount={}",
-                                userDetails.getEmail(), request.tokenId(), request.tokenAmount(), request.usdcAmount(),
-                                request.hederaAccountId());
-
-                Transaction transaction = transactionService.initiateSale(
-                                userDetails.getId(),
-                                request.tokenId(),
-                                request.tokenAmount(),
-                                request.usdcAmount(),
-                                request.hederaAccountId());
-
-                TransactionInitiationResponse response = TransactionInitiationResponse.builder()
-                                .message("Sale initiated successfully.")
-                                .transactionId(transaction.getId())
-                                .status(transaction.getStatus())
-                                .estimatedUsdc(transaction.getAmountUsdc())
-                                .estimatedTokens(transaction.getTokenAmount())
-                                .hederaTransactionId(transaction.getHederaTransactionId())
-                                .build();
-
-                return new ResponseEntity<>(response, HttpStatus.CREATED);
-        }
-
         @GetMapping("/{transactionId}")
         public ResponseEntity<TransactionDto> getTransactionById(
                         @AuthenticationPrincipal UserDetailsImpl userDetails,

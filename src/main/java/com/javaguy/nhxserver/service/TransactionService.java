@@ -9,6 +9,7 @@ import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.model.enums.TransactionStatus;
 import com.javaguy.nhxserver.model.enums.TransactionType;
 import com.javaguy.nhxserver.repository.TransactionRepository;
+import com.javaguy.nhxserver.repository.UserRepository;
 import com.javaguy.nhxserver.service.hedera.HederaService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,10 +23,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Transaction Service - Orchestrates all buy/sell operations
- * Coordinates between Hedera and business logic
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,7 +32,7 @@ public class TransactionService {
     private final HederaService hederaService;
     private final ApplicationEventPublisher eventPublisher;
     private final PortfolioService portfolioService;
-    private final com.javaguy.nhxserver.repository.UserRepository userRepository; // Inject UserRepository
+    private final UserRepository userRepository;
 
     private static final int USDC_DECIMALS = 6;
 
@@ -159,7 +156,7 @@ public class TransactionService {
      * Get user transactions
      */
     public List<Transaction> getUserTransactions(
-            Long userId, // Changed to Long
+            Long userId,
             TransactionStatus status,
             LocalDateTime startDate,
             LocalDateTime endDate) {
@@ -177,7 +174,7 @@ public class TransactionService {
      * Update transaction status
      */
     @Transactional
-    public Transaction updateTransactionStatus(Long transactionId, TransactionStatus newStatus) {
+    public void updateTransactionStatus(Long transactionId, TransactionStatus newStatus) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                         "TransactionNotFound", "Transaction not found with ID: " + transactionId));
@@ -195,12 +192,7 @@ public class TransactionService {
         log.info("Transaction {} status updated: {} -> {}",
                 transaction.getId(), oldStatus, newStatus);
 
-        return transaction;
     }
-
-    // Validation methods
-
-    // Purchase validation will be implemented with purchase method
 
     private void validateSaleRequest(String tokenAmount, String usdcAmount, String hederaAccountId) {
         if (tokenAmount == null || tokenAmount.isEmpty()) {

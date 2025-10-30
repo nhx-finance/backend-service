@@ -15,7 +15,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+
 
 @Component
 @RequiredArgsConstructor
@@ -35,7 +35,7 @@ public class HederaMirrorNodeClient {
      * @param tokenId   (Optional) The token ID to filter transfers by.
      * @param limit     (Optional) The maximum number of transactions to retrieve.
      * @param order     (Optional) The order of results (asc/desc).
-     * @param timestamp (Optional) The timestamp to query transactions after (e.g., "gte:1234567890.000000000").
+     * @param timestamp (Optional) The timestamp to query transactions after
      * @return A list of JsonNode representing the transactions.
      */
     public List<JsonNode> getCryptoTransfersToAccount(String accountId, String tokenId, Integer limit, String order, String timestamp) {

@@ -32,7 +32,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Profile("prod")
+@Profile("dev")
 public class AzureBlobStorageService {
 
     @Value("${azure.storage.account-name}")

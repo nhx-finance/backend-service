@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Profile;
 
 @Configuration
 @RequiredArgsConstructor
-@Profile("prod")
+@Profile("dev")
 public class BlobStorageConfig {
 
     private final AzureBlobStorageService azureBlobStorageService;

@@ -1,5 +1,4 @@
 # Multi-stage Dockerfile for nhxserver with dependency caching
-# Stage 1: Download dependencies (cached layer)
 FROM maven:3.9-eclipse-temurin-21 AS dependencies
 WORKDIR /app
 

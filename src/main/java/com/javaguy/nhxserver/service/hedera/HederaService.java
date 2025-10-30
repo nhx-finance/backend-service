@@ -10,6 +10,7 @@ import com.javaguy.nhxserver.model.enums.TransactionType;
 import com.javaguy.nhxserver.repository.TransactionRepository;
 import com.javaguy.nhxserver.service.PortfolioService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,39 +19,38 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
 
-/**
- * Service for handling Hedera token transfers.
- * Only handles transfers from treasury to user accounts.
- */
 @Service
 @Slf4j
 public class HederaService {
     private final Client client;
-    private final TokenId nhsafTokenId;
-    private final TokenId usdcTokenId;
+    private static final TokenId KCB_TOKEN = TokenId.fromString("0.0.7142699");
+    private static final TokenId KQ_TOKEN = TokenId.fromString("0.0.7142834");
+    private static final TokenId KEGN_TOKEN = TokenId.fromString("0.0.7142885");
+    private static final TokenId HAFR_TOKEN = TokenId.fromString("0.0.7142913");
+    private static final TokenId EQTY_TOKEN = TokenId.fromString("0.0.7142958");
+    private static final TokenId usdcTokenId = TokenId.fromString("0.0.7117594");
+
     private final AccountId treasuryAccountId;
     private final PrivateKey treasuryPrivateKey;
     private final TransactionRepository transactionRepository;
     private final PortfolioService portfolioService;
 
-    private static final int TOKEN_DECIMALS = 2;
+    private static final int TOKEN_DECIMALS = 6;
     private static final int USDC_DECIMALS = 6;
-    private static final long MAX_TRANSACTION_FEE_HBAR = 2;
+    private static final long MAX_TRANSACTION_FEE_HBAR = 1;
 
     public HederaService(Client client,
             HederaConfig hederaConfig,
             TransactionRepository transactionRepository,
             PortfolioService portfolioService) {
         this.client = client;
-        this.nhsafTokenId = TokenId.fromString(hederaConfig.getNhsafTokenId());
-        this.usdcTokenId = TokenId.fromString(hederaConfig.getUsdcTokenId());
         this.treasuryAccountId = AccountId.fromString(hederaConfig.getTreasuryAccountId());
-        this.treasuryPrivateKey = PrivateKey.fromString(hederaConfig.getOperatorKey());
+        this.treasuryPrivateKey = PrivateKey.fromString(hederaConfig.getTreasuryKey());
         this.transactionRepository = transactionRepository;
         this.portfolioService = portfolioService;
 
-        log.info("HederaService initialized with treasury account: {}, nhSAF token: {}",
-                treasuryAccountId, nhsafTokenId);
+        log.info("HederaService initialized with treasury account: {}",
+                treasuryAccountId);
     }
 
     /**
@@ -58,24 +58,23 @@ public class HederaService {
      * 
      * @param userId                Internal user ID for portfolio tracking
      * @param recipientAccountIdStr Hedera account ID to receive tokens
-     * @param tokenAmount           Amount of tokens to transfer (in smallest units)
+     * @param tokenAmount           Amount of tokens to transfer
      * @return Transaction details including Hedera transaction ID
      */
     @Transactional
-    public HederaTransactionResponse transferTokens(Long userId, String recipientAccountIdStr, long tokenAmount) {
+    public HederaTransactionResponse transferTokens(Long userId, String tokenSymbol, String recipientAccountIdStr, long tokenAmount) {
         log.info("Transferring {} tokens to account {}", tokenAmount, recipientAccountIdStr);
 
-        // Validate account ID
         if (!isValidAccountId(recipientAccountIdStr)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid account ID format");
         }
         AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
-
+        TokenId tokenId = getTokenIdBySymbol(tokenSymbol);
         try {
             // Create the transfer transaction
             TransferTransaction transaction = new TransferTransaction()
-                    .addTokenTransfer(nhsafTokenId, treasuryAccountId, -tokenAmount)
-                    .addTokenTransfer(nhsafTokenId, recipientAccountId, tokenAmount)
+                    .addTokenTransfer(tokenId, treasuryAccountId, -tokenAmount)
+                    .addTokenTransfer(tokenId, recipientAccountId, tokenAmount)
                     .setMaxTransactionFee(new Hbar(MAX_TRANSACTION_FEE_HBAR))
                     .freezeWith(client);
 
@@ -99,7 +98,7 @@ public class HederaService {
                 // Update user's portfolio
                 portfolioService.updatePortfolio(
                         userId,
-                        nhsafTokenId.toString(),
+                        tokenId.toString(),
                         tokenDecimalAmount,
                         TransactionType.TOKEN_TRANSFER);
 
@@ -132,7 +131,7 @@ public class HederaService {
 
         } catch (Exception e) {
             handleTransactionException(e);
-            return null; // This will never be reached as handleTransactionException always throws
+            return null;
         }
     }
 
@@ -148,12 +147,12 @@ public class HederaService {
      */
     @Transactional
     public HederaTransactionResponse sellTokens(Long userId,
-            String tokenIdStr,
+            String tokenSymbol,
             long amountToBurn,
             String recipientAccountIdStr,
             long amountUsdcToSend) {
-        log.info("Sell request: user={}, tokenId={}, burnAmount={}, usdcAmount={}, recipient={}",
-                userId, tokenIdStr, amountToBurn, amountUsdcToSend, recipientAccountIdStr);
+        log.info("Sell request: user={}, tokenSymbol={}, burnAmount={}, usdcAmount={}, recipient={}",
+                userId, tokenSymbol, amountToBurn, amountUsdcToSend, recipientAccountIdStr);
 
         if (!isValidAccountId(recipientAccountIdStr)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid recipient account ID format");
@@ -161,7 +160,7 @@ public class HederaService {
 
         TokenId tokenId;
         try {
-            tokenId = TokenId.fromString(tokenIdStr);
+            tokenId = getTokenIdBySymbol(tokenSymbol);
         } catch (Exception ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid tokenId format");
         }
@@ -169,7 +168,7 @@ public class HederaService {
         AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
 
         try {
-            // Burn the sold tokens (requires supply/admin key)
+            // Burn the sold tokens
             TokenBurnTransaction burnTx = new TokenBurnTransaction()
                     .setTokenId(tokenId)
                     .setAmount(amountToBurn)
@@ -245,7 +244,7 @@ public class HederaService {
 
         } catch (Exception e) {
             handleTransactionException(e);
-            return null; // unreachable
+            return null;
         }
     }
 
@@ -305,23 +304,6 @@ public class HederaService {
         return treasuryAccountId.toString();
     }
 
-    /**
-     * Compatibility accessor used by other components
-     */
-    public String getTreasuryAccountId() {
-        return getTreasuryAccountIdString();
-    }
-
-    /**
-     * Get configured token IDs
-     */
-    public String getNhsafTokenId() {
-        return nhsafTokenId.toString();
-    }
-
-    public String getUsdcTokenId() {
-        return usdcTokenId.toString();
-    }
 
     /**
      * Query token balance for an account and token
@@ -340,5 +322,16 @@ public class HederaService {
                     "BalanceQueryFailed",
                     "Failed to query token balance: " + e.getMessage());
         }
+    }
+
+    private TokenId getTokenIdBySymbol(String symbol) {
+        return switch (symbol.toUpperCase()) {
+            case "KCB" -> KCB_TOKEN;
+            case "KQ" -> KQ_TOKEN;
+            case "KEGN" -> KEGN_TOKEN;
+            case "HAFR" -> HAFR_TOKEN;
+            case "EQTY" -> EQTY_TOKEN;
+            default -> throw new IllegalArgumentException("Unsupported token symbol: " + symbol);
+        };
     }
 }

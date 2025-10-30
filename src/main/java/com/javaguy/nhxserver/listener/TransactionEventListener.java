@@ -19,7 +19,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 public class TransactionEventListener {
 
-    // private final PortfolioService portfolioService; // Removed unused field
     private final NotificationService notificationService;
 
     /**
@@ -72,7 +71,6 @@ public class TransactionEventListener {
             
         } catch (Exception e) {
             log.error("Error handling tokens received: {}", e.getMessage(), e);
-            // Don't throw - notification failure shouldn't affect transaction
         }
     }
 
@@ -110,7 +108,6 @@ public class TransactionEventListener {
         log.info("Handling PortfolioUpdateEvent for user: {}", event.getUserId());
         
         try {
-            // Portfolio update is handled in the service that publishes the event
             log.info("Portfolio update processed for user: {}", event.getUserId());
             
         } catch (Exception e) {

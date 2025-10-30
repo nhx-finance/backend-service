@@ -18,8 +18,4 @@ public abstract class TransactionEvent extends ApplicationEvent {
         this.transactionId = transactionId;
         this.eventTimestamp = eventTimestamp;
     }
-
-    public LocalDateTime getEventTimestamp() {
-        return eventTimestamp;
-    }
 }

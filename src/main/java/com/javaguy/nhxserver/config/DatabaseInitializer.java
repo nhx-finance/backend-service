@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Configuration
 @RequiredArgsConstructor
-@Profile("!prod")
+@Profile("prod")
 public class DatabaseInitializer implements CommandLineRunner {
 
         private static final Logger log = LoggerFactory.getLogger(DatabaseInitializer.class);

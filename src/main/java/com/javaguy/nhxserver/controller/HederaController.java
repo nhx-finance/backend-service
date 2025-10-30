@@ -47,21 +47,19 @@ public class HederaController {
         public ResponseEntity<HederaTransactionResponse> transferTokens(
                         @AuthenticationPrincipal UserDetailsImpl userDetails,
                         @Parameter(description = "User's Hedera account ID (0.0.123456)") @RequestParam @NotBlank String accountId,
+                        @Parameter(description = "Token Symbol") @RequestParam @NotBlank String tokenSymbol,
                         @Parameter(description = "Amount of tokens to transfer (in smallest units)") @RequestParam @Positive long amount) {
 
                 log.info("Processing token transfer request for user {} to account {}",
                                 userDetails.getId(), accountId);
 
                 HederaTransactionResponse response = hederaService.transferTokens(
-                                userDetails.getId(), accountId, amount);
+                                userDetails.getId(), tokenSymbol, accountId, amount);
 
                 return ResponseEntity.ok(response);
         }
 
-        /**
-         * Sell tokens: frontend sends tokenId, amountToBurn (smallest units),
-         * amountUsdcToSend (USDC smallest units), and recipient account
-         */
+      
         @PostMapping("/sell")
         @PreAuthorize("hasRole('USER')")
         @Operation(summary = "Sell token for USDC", description = "Burns the sold token and transfers USDC from treasury to the recipient", security = @SecurityRequirement(name = "bearerAuth"))
@@ -73,16 +71,16 @@ public class HederaController {
         })
         public ResponseEntity<HederaTransactionResponse> sellTokens(
                         @AuthenticationPrincipal UserDetailsImpl userDetails,
-                        @Parameter(description = "Token ID being sold (e.g. 0.0.12345)") @RequestParam @NotBlank String tokenId,
+                        @Parameter(description = "Token symbol") @RequestParam @NotBlank String tokenSymbol,
                         @Parameter(description = "Amount to burn (in token smallest units)") @RequestParam @Positive long amountToBurn,
                         @Parameter(description = "Amount of USDC to send (in smallest USDC units)") @RequestParam @Positive long amountUsdcToSend,
                         @Parameter(description = "Recipient Hedera account ID for USDC") @RequestParam @NotBlank String accountId) {
 
                 log.info("Received sell request from user {}: token={}, burn={}, usdc={}, recipient={}",
-                                userDetails.getId(), tokenId, amountToBurn, amountUsdcToSend, accountId);
+                                userDetails.getId(), tokenSymbol, amountToBurn, amountUsdcToSend, accountId);
 
                 HederaTransactionResponse resp = hederaService.sellTokens(
-                                userDetails.getId(), tokenId, amountToBurn, accountId, amountUsdcToSend);
+                                userDetails.getId(), tokenSymbol, amountToBurn, accountId, amountUsdcToSend);
 
                 return ResponseEntity.ok(resp);
         }
