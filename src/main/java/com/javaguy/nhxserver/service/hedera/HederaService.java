@@ -29,6 +29,7 @@ public class HederaService {
     private static final TokenId HAFR_TOKEN = TokenId.fromString("0.0.7142913");
     private static final TokenId EQTY_TOKEN = TokenId.fromString("0.0.7142958");
     private static final TokenId usdcTokenId = TokenId.fromString("0.0.7117594");
+    private static final TokenId SCOM_TOKEN = TokenId.fromString("0.0.7135370");
 
     private final AccountId treasuryAccountId;
     private final PrivateKey treasuryPrivateKey;
@@ -326,6 +327,7 @@ public class HederaService {
 
     private TokenId getTokenIdBySymbol(String symbol) {
         return switch (symbol.toUpperCase()) {
+            case "SCOM" -> SCOM_TOKEN;
             case "KCB" -> KCB_TOKEN;
             case "KQ" -> KQ_TOKEN;
             case "KEGN" -> KEGN_TOKEN;
