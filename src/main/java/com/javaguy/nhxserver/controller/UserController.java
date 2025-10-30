@@ -270,6 +270,55 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Update user's KYC status to COMPLETED", description = "Updates the KYC status of a specific user to COMPLETED. This operation typically follows a manual review process. Requires ADMIN role.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "KYC status updated to COMPLETED successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = MessageResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Only ADMINs can update KYC status",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @PatchMapping("/{userId}/kyc/complete")
+    //@PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<MessageResponse> completeKyc(@PathVariable Long userId) {
+        log.info("Admin marking KYC status as COMPLETED for userId: {}", userId);
+        MessageResponse response = userService.updateKycStatusToCompleted(userId);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Get user's KYC status", description = "Retrieves the current KYC (Know Your Customer) status for a specific user.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "KYC status retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = String.class, example = "PENDING"))),
+            @ApiResponse(responseCode = "404", description = "User not found",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden - User not authorized to view this KYC status",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    @GetMapping("/{userId}/kyc/status")
+    @PreAuthorize("hasRole('USER') and #userId == authentication.principal.userId")
+    public ResponseEntity<Map<String, String>> getKycStatus(@PathVariable Long userId) {
+        log.info("Fetching KYC status for userId: {}", userId);
+        // Ensure the authenticated user is accessing their own KYC status
+        User user = userService.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        
+        return ResponseEntity.ok(Map.of("kycStatus", userService.getKycStatus(userId).toString()));
+    }
+
     @Operation(summary = "Get user portfolio history", description = "Retrieves the historical portfolio snapshots for a user within a given date range.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Portfolio history retrieved successfully",

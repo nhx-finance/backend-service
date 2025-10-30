@@ -27,6 +27,7 @@ import com.javaguy.nhxserver.model.dto.WalletResponse;
 import com.javaguy.nhxserver.model.dto.KycSubmissionDto;
 import com.javaguy.nhxserver.model.entity.Asset;
 import com.javaguy.nhxserver.repository.AssetRepository;
+import com.javaguy.nhxserver.model.enums.KycStatus;
 
 import java.util.Map;
 import java.util.List;
@@ -63,15 +64,34 @@ public class UserService implements com.javaguy.nhxserver.service.user.api.UserU
     }
 
     @Transactional
+    public MessageResponse updateKycStatusToCompleted(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+
+        user.setKycStatus(KycStatus.COMPLETED);
+        userRepository.save(user);
+
+        return new MessageResponse("KYC status updated to COMPLETED successfully");
+    }
+
+    @Transactional(readOnly = true)
+    public KycStatus getKycStatus(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+        return user.getKycStatus(); 
+    }
+
+    @Transactional
     public MessageResponse submitKyc(Long userId, KycSubmissionDto kycDto) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
         user.setFullName(kycDto.fullName());
         user.setPhoneNumber(kycDto.phoneNumber());
+        user.setKycStatus(KycStatus.PENDING); // Set to pending on submission
         userRepository.save(user);
 
-        return new MessageResponse("KYC submitted successfully", Map.of("status", "pending"));
+        return new MessageResponse("KYC submitted successfully", Map.of("status", KycStatus.PENDING.toString()));
     }
 
     private static final Pattern ETHEREUM_ADDRESS_PATTERN = Pattern.compile("^0x[a-fA-F0-9]{40}$");

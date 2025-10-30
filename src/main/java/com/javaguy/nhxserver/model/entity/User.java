@@ -57,6 +57,10 @@ public class User {
     @Column(name = "wallet_address")
     private String walletAddress;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kyc_status", nullable = false)
+    private KycStatus kycStatus = KycStatus.NOT_SUBMITTED;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_roles",
                joinColumns = @JoinColumn(name = "user_id"),
