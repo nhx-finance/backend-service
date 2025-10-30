@@ -4,6 +4,7 @@ import com.hedera.hashgraph.sdk.AccountId;
 import com.javaguy.nhxserver.event.*;
 import com.javaguy.nhxserver.exception.ApiException;
 import com.javaguy.nhxserver.model.dto.HederaTransactionResponse;
+import com.javaguy.nhxserver.model.dto.SellRequestDto;
 import com.javaguy.nhxserver.model.entity.Transaction;
 import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.model.enums.TransactionStatus;
@@ -44,39 +45,31 @@ public class TransactionService {
 
     /**
      * Initiate a sale of tokens for USDC
-     * 
+     *
      * @param userId          User initiating the sale
-     * @param tokenId         Token being sold (e.g., "0.0.12345")
-     * @param tokenAmount     Amount of token to sell (decimal string)
-     * @param usdcAmount      Amount of USDC to receive (decimal string)
-     * @param hederaAccountId User's Hedera account to receive USDC
+     * @param request         SellRequestDto containing token details
      */
     @Transactional
     public Transaction initiateSale(
-            Long userId,
-            String tokenId,
-            String tokenAmount,
-            String usdcAmount,
-            String hederaAccountId) {
+            Long userId, SellRequestDto request) {
 
         log.info("Initiating sale for user {} - Token: {}, Amount: {}, USDC: {}",
-                userId, tokenId, tokenAmount, usdcAmount);
+                userId, request.tokenSymbol(), request.amountToBurn(), request.amountUsdcToSend());
 
         try {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND,
                             "UserNotFound", "User not found with ID: " + userId));
 
-            // Validate inputs
-            validateSaleRequest(tokenAmount, usdcAmount, hederaAccountId);
+            // Validate inputs (now using DTO values)
+            validateSaleRequest(request);
 
-            // Convert decimal amounts to smallest units
-            int tokenDecimals = TOKEN_DECIMALS.getOrDefault(tokenId, 2); // Default to 2 decimals
-            BigDecimal tokenDecimal = new BigDecimal(tokenAmount);
-            long tokenSmallestUnits = tokenDecimal.multiply(BigDecimal.TEN.pow(tokenDecimals)).longValue();
+            // Convert decimal amounts to smallest units - DTO already provides smallest units, so just use them
+            long tokenSmallestUnits = request.amountToBurn();
+            long usdcSmallestUnits = request.amountUsdcToSend();
 
-            BigDecimal usdcDecimal = new BigDecimal(usdcAmount);
-            long usdcSmallestUnits = usdcDecimal.multiply(BigDecimal.TEN.pow(USDC_DECIMALS)).longValue();
+            BigDecimal tokenDecimal = BigDecimal.valueOf(tokenSmallestUnits).movePointLeft(TOKEN_DECIMALS.getOrDefault(request.tokenSymbol(), 2));
+            BigDecimal usdcDecimal = BigDecimal.valueOf(usdcSmallestUnits).movePointLeft(USDC_DECIMALS);
 
             // Create transaction record
             Transaction transaction = Transaction.builder()
@@ -85,7 +78,7 @@ public class TransactionService {
                     .status(TransactionStatus.INITIATED)
                     .amountUsdc(usdcDecimal)
                     .tokenAmount(tokenDecimal)
-                    .hederaAccountId(hederaAccountId)
+                    .hederaAccountId(request.recipientAccountIdStr())
                     .createdAt(LocalDateTime.now())
                     .updatedAt(LocalDateTime.now())
                     .build();
@@ -98,11 +91,7 @@ public class TransactionService {
 
             // Execute Hedera burn and USDC transfer
             HederaTransactionResponse hederaResponse = hederaService.sellTokens(
-                    userId,
-                    tokenId,
-                    tokenSmallestUnits,
-                    hederaAccountId,
-                    usdcSmallestUnits);
+                    userId, request);
 
             if (hederaResponse.isSuccess()) {
                 // Update transaction with Hedera transaction ID
@@ -118,14 +107,14 @@ public class TransactionService {
                         this,
                         transaction.getId(),
                         hederaResponse.getTransactionId(),
-                        hederaAccountId,
+                        request.recipientAccountIdStr(),
                         tokenDecimal, // amount in token decimal
                         LocalDateTime.now()));
 
                 // Update portfolio (negative amount to decrease balance)
                 portfolioService.updatePortfolio(
                         userId,
-                        tokenId,
+                        request.tokenSymbol(),
                         tokenDecimal.negate(),
                         TransactionType.SALE);
 
@@ -194,40 +183,26 @@ public class TransactionService {
 
     }
 
-    private void validateSaleRequest(String tokenAmount, String usdcAmount, String hederaAccountId) {
-        if (tokenAmount == null || tokenAmount.isEmpty()) {
+    private void validateSaleRequest(SellRequestDto request) {
+        if (request.tokenSymbol() == null || request.tokenSymbol().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
-                    "Token amount is required");
+                    "Token symbol is required");
         }
 
-        if (usdcAmount == null || usdcAmount.isEmpty()) {
+        if (request.amountToBurn() <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
-                    "USDC amount is required");
+                    "Token amount to burn must be greater than 0");
         }
 
-        try {
-            BigDecimal tokenDecimal = new BigDecimal(tokenAmount);
-            if (tokenDecimal.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "InvalidInput",
-                        "Token amount must be greater than 0");
-            }
-
-            BigDecimal usdcDecimal = new BigDecimal(usdcAmount);
-            if (usdcDecimal.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new ApiException(HttpStatus.BAD_REQUEST,
-                        "InvalidInput",
-                        "USDC amount must be greater than 0");
-            }
-        } catch (NumberFormatException e) {
+        if (request.amountUsdcToSend() <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
-                    "Invalid number format for amount");
+                    "USDC amount to send must be greater than 0");
         }
 
-        if (!AccountId.fromString(hederaAccountId).toString().equals(hederaAccountId)) {
+        if (!AccountId.fromString(request.recipientAccountIdStr()).toString().equals(request.recipientAccountIdStr())) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
                     "Invalid Hedera account ID format");
