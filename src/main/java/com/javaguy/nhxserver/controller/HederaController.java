@@ -21,6 +21,8 @@ import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
+import com.javaguy.nhxserver.model.dto.SellRequestDto;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/hedera")
@@ -62,25 +64,22 @@ public class HederaController {
       
         @PostMapping("/sell")
         @PreAuthorize("hasRole('USER')")
-        @Operation(summary = "Sell token for USDC", description = "Burns the sold token and transfers USDC from treasury to the recipient", security = @SecurityRequirement(name = "bearerAuth"))
+        @Operation(summary = "Sell tokens for USDC", description = "Allows a user to sell a specified amount of a token by burning it on Hedera and receiving USDC in return. All details are provided in the request body.", security = @SecurityRequirement(name = "bearerAuth"))
         @ApiResponses({
                         @ApiResponse(responseCode = "200", description = "Sell operation successful", content = @Content(schema = @Schema(implementation = HederaTransactionResponse.class))),
-                        @ApiResponse(responseCode = "400", description = "Invalid input parameters"),
-                        @ApiResponse(responseCode = "401", description = "Not authorized"),
-                        @ApiResponse(responseCode = "500", description = "Error during sell operation")
+                        @ApiResponse(responseCode = "400", description = "Invalid input parameters (e.g., invalid token symbol, amounts, or recipient account ID)"),
+                        @ApiResponse(responseCode = "401", description = "Not authorized to perform the sell operation"),
+                        @ApiResponse(responseCode = "500", description = "Error during sell operation or Hedera network interaction")
         })
         public ResponseEntity<HederaTransactionResponse> sellTokens(
                         @AuthenticationPrincipal UserDetailsImpl userDetails,
-                        @Parameter(description = "Token symbol") @RequestParam @NotBlank String tokenSymbol,
-                        @Parameter(description = "Amount to burn (in token smallest units)") @RequestParam @Positive long amountToBurn,
-                        @Parameter(description = "Amount of USDC to send (in smallest USDC units)") @RequestParam @Positive long amountUsdcToSend,
-                        @Parameter(description = "Recipient Hedera account ID for USDC") @RequestParam @NotBlank String accountId) {
+                        @Valid @RequestBody SellRequestDto request) {
 
                 log.info("Received sell request from user {}: token={}, burn={}, usdc={}, recipient={}",
-                                userDetails.getId(), tokenSymbol, amountToBurn, amountUsdcToSend, accountId);
+                                userDetails.getId(), request.tokenSymbol(), request.amountToBurn(), request.amountUsdcToSend(), request.recipientAccountIdStr());
 
                 HederaTransactionResponse resp = hederaService.sellTokens(
-                                userDetails.getId(), tokenSymbol, amountToBurn, accountId, amountUsdcToSend);
+                                userDetails.getId(), request);
 
                 return ResponseEntity.ok(resp);
         }

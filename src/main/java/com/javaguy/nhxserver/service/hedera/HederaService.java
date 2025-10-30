@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
+import com.javaguy.nhxserver.model.dto.SellRequestDto;
 
 @Service
 @Slf4j
@@ -147,32 +148,28 @@ public class HederaService {
      * and the recipient Hedera account id that should receive the USDC.
      */
     @Transactional
-    public HederaTransactionResponse sellTokens(Long userId,
-            String tokenSymbol,
-            long amountToBurn,
-            String recipientAccountIdStr,
-            long amountUsdcToSend) {
+    public HederaTransactionResponse sellTokens(Long userId, SellRequestDto request) {
         log.info("Sell request: user={}, tokenSymbol={}, burnAmount={}, usdcAmount={}, recipient={}",
-                userId, tokenSymbol, amountToBurn, amountUsdcToSend, recipientAccountIdStr);
+                userId, request.tokenSymbol(), request.amountToBurn(), request.amountUsdcToSend(), request.recipientAccountIdStr());
 
-        if (!isValidAccountId(recipientAccountIdStr)) {
+        if (!isValidAccountId(request.recipientAccountIdStr())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid recipient account ID format");
         }
 
         TokenId tokenId;
         try {
-            tokenId = getTokenIdBySymbol(tokenSymbol);
+            tokenId = getTokenIdBySymbol(request.tokenSymbol());
         } catch (Exception ex) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid tokenId format");
         }
 
-        AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
+        AccountId recipientAccountId = AccountId.fromString(request.recipientAccountIdStr());
 
         try {
             // Burn the sold tokens
             TokenBurnTransaction burnTx = new TokenBurnTransaction()
                     .setTokenId(tokenId)
-                    .setAmount(amountToBurn)
+                    .setAmount(request.amountToBurn())
                     .freezeWith(client);
 
             TransactionResponse burnResponse = burnTx
@@ -189,12 +186,12 @@ public class HederaService {
             }
 
             log.info("Token burn succeeded: token={}, amount={}, burnTxn={}",
-                    tokenId, amountToBurn, burnResponse.transactionId);
+                    tokenId, request.amountToBurn(), burnResponse.transactionId);
 
             // Transfer USDC from treasury to recipient
             TransferTransaction usdcTransfer = new TransferTransaction()
-                    .addTokenTransfer(usdcTokenId, treasuryAccountId, -amountUsdcToSend)
-                    .addTokenTransfer(usdcTokenId, recipientAccountId, amountUsdcToSend)
+                    .addTokenTransfer(usdcTokenId, treasuryAccountId, -request.amountUsdcToSend())
+                    .addTokenTransfer(usdcTokenId, recipientAccountId, request.amountUsdcToSend())
                     .setMaxTransactionFee(new Hbar(MAX_TRANSACTION_FEE_HBAR))
                     .freezeWith(client);
 
@@ -211,12 +208,12 @@ public class HederaService {
                         "USDC transfer failed: " + usdcReceipt.status);
             }
 
-            log.info("USDC transfer succeeded to {} amount={} txn={}", recipientAccountId, amountUsdcToSend,
+            log.info("USDC transfer succeeded to {} amount={} txn={}", recipientAccountId, request.amountUsdcToSend(),
                     usdcTxResp.transactionId);
 
             // Convert amounts to decimals for portfolio/recording
-            BigDecimal tokenDecimalAmount = BigDecimal.valueOf(amountToBurn).movePointLeft(TOKEN_DECIMALS);
-            BigDecimal usdcDecimalAmount = BigDecimal.valueOf(amountUsdcToSend).movePointLeft(USDC_DECIMALS);
+            BigDecimal tokenDecimalAmount = BigDecimal.valueOf(request.amountToBurn()).movePointLeft(TOKEN_DECIMALS);
+            BigDecimal usdcDecimalAmount = BigDecimal.valueOf(request.amountUsdcToSend()).movePointLeft(USDC_DECIMALS);
 
             // Update user's portfolio (subtract sold tokens)
             portfolioService.updatePortfolio(userId, tokenId.toString(), tokenDecimalAmount, TransactionType.SALE);
@@ -227,7 +224,7 @@ public class HederaService {
                     .status(TransactionStatus.COMPLETED)
                     .amountUsdc(usdcDecimalAmount)
                     .tokenAmount(tokenDecimalAmount)
-                    .hederaAccountId(recipientAccountIdStr)
+                    .hederaAccountId(request.recipientAccountIdStr())
                     .hederaTransactionId(usdcTxResp.transactionId.toString())
                     .memo(String.format("Sold %s tokens for %s USDC", tokenDecimalAmount, usdcDecimalAmount))
                     .completedAt(LocalDateTime.now())
