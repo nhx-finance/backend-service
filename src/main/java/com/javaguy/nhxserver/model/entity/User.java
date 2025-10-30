@@ -58,7 +58,7 @@ public class User {
     private String walletAddress;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "kyc_status", nullable = false)
+    @Column(name = "kyc_status")
     private KycStatus kycStatus = KycStatus.NOT_SUBMITTED;
 
     @ManyToMany(fetch = FetchType.EAGER)
