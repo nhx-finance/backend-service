@@ -29,7 +29,7 @@ public class HederaService {
     private static final TokenId KEGN_TOKEN = TokenId.fromString("0.0.7142885");
     private static final TokenId HAFR_TOKEN = TokenId.fromString("0.0.7142913");
     private static final TokenId EQTY_TOKEN = TokenId.fromString("0.0.7142958");
-    private static final TokenId usdcTokenId = TokenId.fromString("0.0.7117594");
+    private static final TokenId usdcTokenId = TokenId.fromString("0.0.7135358");
     private static final TokenId SCOM_TOKEN = TokenId.fromString("0.0.7135370");
 
     private final AccountId treasuryAccountId;
@@ -47,7 +47,7 @@ public class HederaService {
             PortfolioService portfolioService) {
         this.client = client;
         this.treasuryAccountId = AccountId.fromString(hederaConfig.getTreasuryAccountId());
-        this.treasuryPrivateKey = PrivateKey.fromString(hederaConfig.getTreasuryKey());
+        this.treasuryPrivateKey = PrivateKey.fromStringECDSA(hederaConfig.getTreasuryKey());
         this.transactionRepository = transactionRepository;
         this.portfolioService = portfolioService;
 
@@ -156,6 +156,19 @@ public class HederaService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid recipient account ID format");
         }
 
+        long amountToBurn;
+        long amountUsdcToSend;
+        try {
+            amountToBurn = Long.parseLong(request.amountToBurn());
+            amountUsdcToSend = Long.parseLong(request.amountUsdcToSend());
+        } catch (NumberFormatException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid number format for amount: " + e.getMessage());
+        }
+
+        if (amountToBurn <= 0 || amountUsdcToSend <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Amounts must be positive.");
+        }
+
         TokenId tokenId;
         try {
             tokenId = getTokenIdBySymbol(request.tokenSymbol());
@@ -169,7 +182,7 @@ public class HederaService {
             // Burn the sold tokens
             TokenBurnTransaction burnTx = new TokenBurnTransaction()
                     .setTokenId(tokenId)
-                    .setAmount(request.amountToBurn())
+                    .setAmount(amountToBurn)
                     .freezeWith(client);
 
             TransactionResponse burnResponse = burnTx
@@ -186,12 +199,12 @@ public class HederaService {
             }
 
             log.info("Token burn succeeded: token={}, amount={}, burnTxn={}",
-                    tokenId, request.amountToBurn(), burnResponse.transactionId);
+                    tokenId, amountToBurn, burnResponse.transactionId);
 
             // Transfer USDC from treasury to recipient
             TransferTransaction usdcTransfer = new TransferTransaction()
-                    .addTokenTransfer(usdcTokenId, treasuryAccountId, -request.amountUsdcToSend())
-                    .addTokenTransfer(usdcTokenId, recipientAccountId, request.amountUsdcToSend())
+                    .addTokenTransfer(usdcTokenId, treasuryAccountId, -amountUsdcToSend)
+                    .addTokenTransfer(usdcTokenId, recipientAccountId, amountUsdcToSend)
                     .setMaxTransactionFee(new Hbar(MAX_TRANSACTION_FEE_HBAR))
                     .freezeWith(client);
 
@@ -208,12 +221,12 @@ public class HederaService {
                         "USDC transfer failed: " + usdcReceipt.status);
             }
 
-            log.info("USDC transfer succeeded to {} amount={} txn={}", recipientAccountId, request.amountUsdcToSend(),
+            log.info("USDC transfer succeeded to {} amount={} txn={}", recipientAccountId, amountUsdcToSend,
                     usdcTxResp.transactionId);
 
             // Convert amounts to decimals for portfolio/recording
-            BigDecimal tokenDecimalAmount = BigDecimal.valueOf(request.amountToBurn()).movePointLeft(TOKEN_DECIMALS);
-            BigDecimal usdcDecimalAmount = BigDecimal.valueOf(request.amountUsdcToSend()).movePointLeft(USDC_DECIMALS);
+            BigDecimal tokenDecimalAmount = BigDecimal.valueOf(amountToBurn).movePointLeft(TOKEN_DECIMALS);
+            BigDecimal usdcDecimalAmount = BigDecimal.valueOf(amountUsdcToSend).movePointLeft(USDC_DECIMALS);
 
             // Update user's portfolio (subtract sold tokens)
             portfolioService.updatePortfolio(userId, tokenId.toString(), tokenDecimalAmount, TransactionType.SALE);

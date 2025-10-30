@@ -110,7 +110,7 @@ public class PortfolioService {
      * Generate portfolio snapshot for user
      */
     @Transactional
-    public PortfolioSnapshot generateSnapshot(Long userId, BigDecimal exchangeRate) { // Changed to Long
+    public PortfolioSnapshot generateSnapshot(Long userId, BigDecimal exchangeRate) {
         log.info("Generating portfolio snapshot for user: {}", userId);
 
         try {

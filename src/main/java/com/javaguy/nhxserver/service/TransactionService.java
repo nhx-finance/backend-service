@@ -64,9 +64,15 @@ public class TransactionService {
             // Validate inputs (now using DTO values)
             validateSaleRequest(request);
 
-            // Convert decimal amounts to smallest units - DTO already provides smallest units, so just use them
-            long tokenSmallestUnits = request.amountToBurn();
-            long usdcSmallestUnits = request.amountUsdcToSend();
+            // Convert string amounts to long
+            long tokenSmallestUnits;
+            long usdcSmallestUnits;
+            try {
+                tokenSmallestUnits = Long.parseLong(request.amountToBurn());
+                usdcSmallestUnits = Long.parseLong(request.amountUsdcToSend());
+            } catch (NumberFormatException e) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid number format for amount: " + e.getMessage());
+            }
 
             BigDecimal tokenDecimal = BigDecimal.valueOf(tokenSmallestUnits).movePointLeft(TOKEN_DECIMALS.getOrDefault(request.tokenSymbol(), 2));
             BigDecimal usdcDecimal = BigDecimal.valueOf(usdcSmallestUnits).movePointLeft(USDC_DECIMALS);
@@ -190,13 +196,22 @@ public class TransactionService {
                     "Token symbol is required");
         }
 
-        if (request.amountToBurn() <= 0) {
+        long amountToBurn;
+        long amountUsdcToSend;
+        try {
+            amountToBurn = Long.parseLong(request.amountToBurn());
+            amountUsdcToSend = Long.parseLong(request.amountUsdcToSend());
+        } catch (NumberFormatException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid number format for amount: " + e.getMessage());
+        }
+
+        if (amountToBurn <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
                     "Token amount to burn must be greater than 0");
         }
 
-        if (request.amountUsdcToSend() <= 0) {
+        if (amountUsdcToSend <= 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
                     "InvalidInput",
                     "USDC amount to send must be greater than 0");
