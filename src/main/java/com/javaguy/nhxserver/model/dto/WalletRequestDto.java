@@ -4,5 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 
 public record WalletRequestDto(
     @NotBlank(message = "Wallet address is required")
-    String walletAddress
+    String walletAddress,
+    String walletName
 ) {}
