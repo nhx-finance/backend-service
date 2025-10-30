@@ -5,10 +5,10 @@ import com.javaguy.nhxserver.config.HederaConfig;
 import com.javaguy.nhxserver.exception.ApiException;
 import com.javaguy.nhxserver.model.dto.HederaTransactionResponse;
 import com.javaguy.nhxserver.model.entity.Transaction;
+import com.javaguy.nhxserver.model.entity.User;
 import com.javaguy.nhxserver.model.enums.TransactionStatus;
 import com.javaguy.nhxserver.model.enums.TransactionType;
 import com.javaguy.nhxserver.repository.TransactionRepository;
-import com.javaguy.nhxserver.service.PortfolioService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -19,6 +19,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeoutException;
 import com.javaguy.nhxserver.model.dto.SellRequestDto;
+import com.javaguy.nhxserver.repository.UserRepository;
+import com.javaguy.nhxserver.exception.ResourceNotFoundException;
 
 @Service
 @Slf4j
@@ -35,7 +37,7 @@ public class HederaService {
     private final AccountId treasuryAccountId;
     private final PrivateKey treasuryPrivateKey;
     private final TransactionRepository transactionRepository;
-    private final PortfolioService portfolioService;
+    private final UserRepository userRepository;
 
     private static final int TOKEN_DECIMALS = 6;
     private static final int USDC_DECIMALS = 6;
@@ -44,21 +46,21 @@ public class HederaService {
     public HederaService(Client client,
             HederaConfig hederaConfig,
             TransactionRepository transactionRepository,
-            PortfolioService portfolioService) {
+            UserRepository userRepository) {
         this.client = client;
         this.treasuryAccountId = AccountId.fromString(hederaConfig.getTreasuryAccountId());
         this.treasuryPrivateKey = PrivateKey.fromStringECDSA(hederaConfig.getTreasuryKey());
         this.transactionRepository = transactionRepository;
-        this.portfolioService = portfolioService;
+        this.userRepository = userRepository;
 
         log.info("HederaService initialized with treasury account: {}",
                 treasuryAccountId);
     }
 
     /**
-     * Transfer tokens from treasury to a user's account and update their portfolio
-     * 
-     * @param userId                Internal user ID for portfolio tracking
+     * Transfer tokens from treasury to a user's account
+     *
+     * @param userId                Internal user ID for tracking
      * @param recipientAccountIdStr Hedera account ID to receive tokens
      * @param tokenAmount           Amount of tokens to transfer
      * @return Transaction details including Hedera transaction ID
@@ -70,6 +72,10 @@ public class HederaService {
         if (!isValidAccountId(recipientAccountIdStr)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid account ID format");
         }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
+
         AccountId recipientAccountId = AccountId.fromString(recipientAccountIdStr);
         TokenId tokenId = getTokenIdBySymbol(tokenSymbol);
         try {
@@ -97,15 +103,9 @@ public class HederaService {
                 BigDecimal tokenDecimalAmount = BigDecimal.valueOf(tokenAmount)
                         .movePointLeft(TOKEN_DECIMALS);
 
-                // Update user's portfolio
-                portfolioService.updatePortfolio(
-                        userId,
-                        tokenId.toString(),
-                        tokenDecimalAmount,
-                        TransactionType.TOKEN_TRANSFER);
-
                 // Record the transaction
                 Transaction tx = Transaction.builder()
+                        .user(user) // Associate the transaction with the user
                         .type(TransactionType.TOKEN_TRANSFER)
                         .status(TransactionStatus.COMPLETED)
                         .tokenAmount(tokenDecimalAmount)
@@ -155,6 +155,9 @@ public class HederaService {
         if (!isValidAccountId(request.recipientAccountIdStr())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "InvalidInput", "Invalid recipient account ID format");
         }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id " + userId));
 
         long amountToBurn;
         long amountUsdcToSend;
@@ -228,11 +231,9 @@ public class HederaService {
             BigDecimal tokenDecimalAmount = BigDecimal.valueOf(amountToBurn).movePointLeft(TOKEN_DECIMALS);
             BigDecimal usdcDecimalAmount = BigDecimal.valueOf(amountUsdcToSend).movePointLeft(USDC_DECIMALS);
 
-            // Update user's portfolio (subtract sold tokens)
-            portfolioService.updatePortfolio(userId, tokenId.toString(), tokenDecimalAmount, TransactionType.SALE);
-
             // Record transaction (store USDC transfer tx id as primary)
             Transaction tx = Transaction.builder()
+                    .user(user) // Associate the transaction with the user
                     .type(TransactionType.SALE)
                     .status(TransactionStatus.COMPLETED)
                     .amountUsdc(usdcDecimalAmount)

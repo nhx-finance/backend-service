@@ -32,7 +32,6 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final HederaService hederaService;
     private final ApplicationEventPublisher eventPublisher;
-    private final PortfolioService portfolioService;
     private final UserRepository userRepository;
 
     private static final int USDC_DECIMALS = 6;
@@ -116,13 +115,6 @@ public class TransactionService {
                         request.recipientAccountIdStr(),
                         tokenDecimal, // amount in token decimal
                         LocalDateTime.now()));
-
-                // Update portfolio (negative amount to decrease balance)
-                portfolioService.updatePortfolio(
-                        userId,
-                        request.tokenSymbol(),
-                        tokenDecimal.negate(),
-                        TransactionType.SALE);
 
                 return transaction;
             } else {
